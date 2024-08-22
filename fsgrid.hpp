@@ -34,6 +34,8 @@
 #define FS_MASTER_RANK 0
 #endif
 
+#error "this should not be here"
+
 struct FsGridTools{
 
    typedef uint32_t FsSize_t; // Size type for global array indices
