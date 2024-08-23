@@ -26,3 +26,9 @@
 *.exe
 *.out
 *.app
+
+# build directory
+build/
+
+# compile_commands
+compile_commands.json
