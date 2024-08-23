@@ -34,7 +34,7 @@
 #define FS_MASTER_RANK 0
 #endif
 
-struct FsGridTools {
+namespace FsGridTools {
 
    typedef uint32_t FsSize_t; // Size type for global array indices
    typedef int32_t FsIndex_t; // Size type for global/local array indices, incl. possible negative values
@@ -202,14 +202,19 @@ struct FsGridTools {
                    << systemDim[2] / processDomainDecomposition[2] << " \n";
       }
    }
-};
+}
 
 /*! Simple cartesian, non-loadbalancing MPI Grid for use with the fieldsolver
  *
  * \param T datastructure containing the field in each cell which this grid manages
  * \param stencil ghost cell width of this grid
  */
-template <typename T, int stencil> class FsGrid : public FsGridTools {
+template <typename T, int stencil> class FsGrid {
+   using FsSize_t = FsGridTools::FsSize_t;
+   using FsIndex_t = FsGridTools::FsIndex_t;
+   using LocalID = FsGridTools::LocalID;
+   using GlobalID = FsGridTools::GlobalID;
+   using Task_t = FsGridTools::Task_t;
    template <typename ArrayT> void swapArray(std::array<ArrayT, 3>& array) {
       ArrayT a = array[0];
       array[0] = array[2];
@@ -246,7 +251,7 @@ public:
       std::array<Task_t, 3> emptyarr = {0, 0, 0};
       if (decomposition == emptyarr) {
          // If decomposition isn't pre-defined, heuristically choose a good domain decomposition for our field size
-         computeDomainDecomposition(globalSize, size, ntasksPerDim, stencil, verbose);
+          FsGridTools::computeDomainDecomposition(globalSize, size, ntasksPerDim, stencil, verbose);
       } else {
          ntasksPerDim = decomposition;
          if (ntasksPerDim[0] * ntasksPerDim[1] * ntasksPerDim[2] != size) {
@@ -372,8 +377,8 @@ public:
 
       // Determine size of our local grid
       for (int i = 0; i < 3; i++) {
-         localSize[i] = calcLocalSize(globalSize[i], ntasksPerDim[i], taskPosition[i]);
-         localStart[i] = calcLocalStart(globalSize[i], ntasksPerDim[i], taskPosition[i]);
+         localSize[i] = FsGridTools::calcLocalSize(globalSize[i], ntasksPerDim[i], taskPosition[i]);
+         localStart[i] = FsGridTools::calcLocalStart(globalSize[i], ntasksPerDim[i], taskPosition[i]);
       }
 
       if (localSize[0] == 0 || (globalSize[0] > stencil && localSize[0] < stencil) || localSize[1] == 0 ||
@@ -638,8 +643,8 @@ public:
       std::array<FsIndex_t, 3> thatTasksStart;
       std::array<FsIndex_t, 3> thatTaskStorageSize;
       for (int i = 0; i < 3; i++) {
-         thatTasksStart[i] = calcLocalStart(globalSize[i], ntasksPerDim[i], taskIndex[i]);
-         thatTaskStorageSize[i] = calcLocalSize(globalSize[i], ntasksPerDim[i], taskIndex[i]) + 2 * stencil;
+         thatTasksStart[i] = FsGridTools::calcLocalStart(globalSize[i], ntasksPerDim[i], taskIndex[i]);
+         thatTaskStorageSize[i] = FsGridTools::calcLocalSize(globalSize[i], ntasksPerDim[i], taskIndex[i]) + 2 * stencil;
       }
 
       retVal.second = 0;
