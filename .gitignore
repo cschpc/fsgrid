@@ -27,8 +27,9 @@
 *.out
 *.app
 
-# build directory
+# directories to ignore
 build/
+.cache/
 
 # compile_commands
 compile_commands.json
