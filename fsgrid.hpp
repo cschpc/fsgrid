@@ -901,12 +901,6 @@ public:
       return &data[id];
    }
 
-   /*! Physical grid spacing and physical coordinate space start.
-    * TODO: Should this be private and have accesor-functions?
-    */
-   double DX, DY, DZ;
-   std::array<double, 3> physicalGlobalStart;
-
    /*! Get the physical coordinates in the global simulation space for
     * the given cell.
     *
@@ -992,6 +986,13 @@ public:
 
    /*! Get the decomposition array*/
    std::array<Task_t, 3>& getDecomposition() { return ntasksPerDim; }
+
+   /*! Physical grid spacing and physical coordinate space start.
+    */
+   double DX;
+   double DY;
+   double DZ;
+   std::array<double, 3> physicalGlobalStart;
 
 private:
    //! MPI Cartesian communicator used in this grid
