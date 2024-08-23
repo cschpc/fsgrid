@@ -45,7 +45,7 @@ jobs:
 
     - name: Verbose re-run failed tests
       # Only run if the test step failed
-      if: ${{ failure() && steps.test.outcome == "failure" }}
+      if: failure() && steps.test.outcome == 'failure'
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}} --rerun-failed --output-on-failure
 
