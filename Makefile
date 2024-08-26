@@ -16,6 +16,7 @@ all:
 		-S $(source_dir) \
 		-DCMAKE_BUILD_TYPE:STRING=$${build_type} \
 		-Dproject_name=$(project_name) \
+		-DMPI_TEST_NUM_PROCS=4 \
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 	cmake \
 		--build $${build_dir} \
