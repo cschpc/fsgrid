@@ -31,7 +31,7 @@ target_link_libraries(
 # !!!!
 set_property(TARGET ${testname}
     PROPERTY CROSSCOMPILING_EMULATOR
-    ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
+    ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPI_TEST_NUM_PROCS} ${MPI_TEST_EXTRA_FLAGS}
     )
 
 gtest_add_tests(TARGET ${testname})
