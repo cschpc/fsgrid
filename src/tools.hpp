@@ -61,21 +61,36 @@ namespace FsGridTools {
    //! Helper function: given a global cellID, calculate the global cell coordinate from it.
    // This is then used do determine the task responsible for this cell, and the
    // local cell index in it.
-   static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, std::array<FsSize_t, 3>& globalSize) {
+   static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::array<FsSize_t, 3>& globalSize) {
+      // We're returning FsIndex_t, which is int32_t. globalSizes are FsSize_t, which are uint32_t.
+      // Need to check that the globalSizes aren't larger than maximum of int32_t
+      const bool globalSizeOverflows = globalSize[0] > std::numeric_limits<FsIndex_t>::max() ||
+                                       globalSize[1] > std::numeric_limits<FsIndex_t>::max() ||
+                                       globalSize[2] > std::numeric_limits<FsIndex_t>::max();
+      const bool idNegative = id < 0;
 
-      // Transform globalID to global cell coordinate
-      std::array<FsIndex_t, 3> cell;
+      // To avoid overflow, do this instead of checking for id < product of globalSize
+      // The number of divisions stays the same anyway
+      const GlobalID idPerGs0 = id / globalSize[0];
+      const GlobalID idPerGs0PerGs1 = idPerGs0 / globalSize[1];
+      const bool idTooLarge = idPerGs0PerGs1 >= globalSize[2];
 
-      assert(id >= 0);
-      assert(id < globalSize[0] * globalSize[1] * globalSize[2]);
+      const bool badInput = idTooLarge || idNegative || globalSizeOverflows;
 
-      int stride = 1;
-      for (int i = 0; i < 3; i++) {
-         cell[i] = (id / stride) % globalSize[i];
-         stride *= globalSize[i];
+      if (badInput) {
+         // For bad input, return bad output
+         return {
+             std::numeric_limits<FsIndex_t>::min(),
+             std::numeric_limits<FsIndex_t>::min(),
+             std::numeric_limits<FsIndex_t>::min(),
+         };
+      } else {
+         return {
+             (FsIndex_t)(id % globalSize[0]),
+             (FsIndex_t)(idPerGs0 % globalSize[1]),
+             (FsIndex_t)(idPerGs0PerGs1 % globalSize[2]),
+         };
       }
-
-      return cell;
    }
 
    //! Helper function to optimize decomposition of this grid over the given number of tasks
