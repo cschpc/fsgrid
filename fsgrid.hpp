@@ -1005,13 +1005,13 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          return retval;
       }
 
-      /*! Get a reference to the field data in a cell
+      /*! Get linear index
        * \param x x-Coordinate, in cells
        * \param y y-Coordinate, in cells
        * \param z z-Coordinate, in cells
-       * \return A reference to cell data in the given cell
+       * \return index
        */
-      T* get(int x, int y, int z) {
+      LocalID calculateIndex(int x, int y, int z) {
 
          // Keep track which neighbour this cell actually belongs to (13 = ourself)
          int isInNeighbourDomain=13;
@@ -1095,7 +1095,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
             if(neighbour[isInNeighbourDomain]==MPI_PROC_NULL) {
                // Neighbour doesn't exist, we must be an outer boundary cell
                // (or something is quite wrong)
-               return NULL;
+               return -1;  // XXX FIXME
 
             } else if(neighbour[isInNeighbourDomain] == rank) {
                // For periodic boundaries, where the neighbour is actually ourself,
@@ -1108,6 +1108,20 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
          LocalID index = LocalIDForCoords(x,y,z);
 
+         return index;
+      }
+
+      /*! Get a reference to the field data in a cell
+       * \param x x-Coordinate, in cells
+       * \param y y-Coordinate, in cells
+       * \param z z-Coordinate, in cells
+       * \return A reference to cell data in the given cell
+       */
+      T* get(int x, int y, int z) {
+         auto index = calculateIndex(x, y, z);
+         if (index < 0) {
+            return NULL;
+         }
          return &data[index];
       }
 
