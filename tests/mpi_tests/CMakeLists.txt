@@ -6,7 +6,6 @@ set(testname ${PROJECT_NAME}_mpi_tests)
 
 add_executable(${testname}
     main.cpp
-    tools_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE

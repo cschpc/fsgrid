@@ -76,14 +76,7 @@ public:
       std::array<Task_t, 3> emptyarr = {0, 0, 0};
       if (decomposition == emptyarr) {
          // If decomposition isn't pre-defined, heuristically choose a good domain decomposition for our field size
-         int myRank = 0;
-         int MPI_flag = 0;
-         MPI_Initialized(&MPI_flag);
-         if (MPI_flag) {
-            MPI_Comm_rank(parent_comm, &myRank);
-         }
-
-         ntasksPerDim = FsGridTools::computeDomainDecomposition(globalSize, size, myRank, stencil, verbose);
+         ntasksPerDim = FsGridTools::computeDomainDecomposition(globalSize, size, stencil);
       } else {
          ntasksPerDim = decomposition;
          if (ntasksPerDim[0] * ntasksPerDim[1] * ntasksPerDim[2] != size) {
