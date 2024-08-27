@@ -18,20 +18,19 @@ struct SystemSize {
 
 Decomposition computeDecomposition(const SystemSize systemSize,
                                    const uint32_t nProcs) {
-    std::array<FsGridTools::Task_t, 3> dd;
     int myRank = 0;
     int MPI_flag = 0;
     MPI_Initialized(&MPI_flag);
     if (MPI_flag) {
        MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     }
-    FsGridTools::computeDomainDecomposition(
+    const auto dd = FsGridTools::computeDomainDecomposition(
         {
             systemSize.x,
             systemSize.y,
             systemSize.z,
         },
-        nProcs, dd, myRank, 1, false);
+        nProcs, myRank, 1, false);
 
     return Decomposition{dd[0], dd[1], dd[2]};
 }
