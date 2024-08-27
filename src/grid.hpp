@@ -83,7 +83,7 @@ public:
             MPI_Comm_rank(parent_comm, &myRank);
          }
 
-         FsGridTools::computeDomainDecomposition(globalSize, size, ntasksPerDim, myRank, stencil, verbose);
+         ntasksPerDim = FsGridTools::computeDomainDecomposition(globalSize, size, myRank, stencil, verbose);
       } else {
          ntasksPerDim = decomposition;
          if (ntasksPerDim[0] * ntasksPerDim[1] * ntasksPerDim[2] != size) {

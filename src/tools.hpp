@@ -94,9 +94,8 @@ static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::arra
 }
 
 //! Helper function to optimize decomposition of this grid over the given number of tasks
-static void computeDomainDecomposition(const std::array<FsSize_t, 3>& GlobalSize, Task_t nProcs,
-                                       std::array<Task_t, 3>& processDomainDecomposition, int rank, int stencilSize = 1,
-                                       int verbose = 0) {
+static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& GlobalSize, Task_t nProcs,
+                                                        int rank, int stencilSize = 1, int verbose = 0) {
    std::array<FsSize_t, 3> systemDim;
    std::array<FsSize_t, 3> processBox;
    std::array<FsSize_t, 3> minDomainSize;
@@ -114,7 +113,7 @@ static void computeDomainDecomposition(const std::array<FsSize_t, 3>& GlobalSize
          minDomainSize[i] = stencilSize;
       }
    }
-   processDomainDecomposition = {1, 1, 1};
+   std::array processDomainDecomposition = {1, 1, 1};
    for (Task_t i = 1; i <= std::min(nProcs, (Task_t)(GlobalSize[0] / minDomainSize[0])); i++) {
       for (Task_t j = 1; j <= std::min(nProcs, (Task_t)(GlobalSize[1] / minDomainSize[1])); j++) {
          if (i * j > nProcs) {
@@ -190,5 +189,7 @@ static void computeDomainDecomposition(const std::array<FsSize_t, 3>& GlobalSize
                 << systemDim[0] / processDomainDecomposition[0] << " " << systemDim[1] / processDomainDecomposition[1]
                 << " " << systemDim[2] / processDomainDecomposition[2] << " \n";
    }
+
+   return processDomainDecomposition;
 }
 } // namespace FsGridTools
