@@ -223,3 +223,10 @@ TEST(FsGridToolsTests, size_64_256_1024_nprocs_64) {
    ASSERT_EQ(y, 1);
    ASSERT_EQ(z, 64);
 }
+
+TEST(FsGridToolsTests, size_65_17_100_nprocs_11) {
+   const auto [x, y, z] = computeDecomposition(SystemSize{65, 17, 100}, 11);
+   ASSERT_EQ(x, 1);
+   ASSERT_EQ(y, 1);
+   ASSERT_EQ(z, 11);
+}

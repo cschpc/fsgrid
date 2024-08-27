@@ -22,10 +22,9 @@
 */
 #include <algorithm>
 #include <array>
-#include <iostream>
 #include <limits>
+#include <stdexcept>
 #include <stdint.h>
-#include <vector>
 
 namespace FsGridTools {
 // Size type for global array indices
