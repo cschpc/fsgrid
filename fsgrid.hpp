@@ -727,7 +727,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
        * \param y The cell's task-local y coordinate
        * \param z The cell's task-local z coordinate
        */
-      LocalID LocalIDForCoords(int x, int y, int z) {
+      LocalID LocalIDForCoords(int x, int y, int z) const {
          LocalID index=0;
          if(globalSize[2] > 1) {
             index += storageSize[0]*storageSize[1]*(stencil+z);
@@ -1011,7 +1011,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
        * \param z z-Coordinate, in cells
        * \return index
        */
-      LocalID calculateIndex(int x, int y, int z) {
+      LocalID calculateIndex(int x, int y, int z) const {
 
          // Keep track which neighbour this cell actually belongs to (13 = ourself)
          int isInNeighbourDomain=13;
