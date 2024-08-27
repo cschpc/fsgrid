@@ -96,7 +96,7 @@ static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::arra
 //! Helper function to optimize decomposition of this grid over the given number of tasks
 static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& globalSize, Task_t nProcs,
                                                         int stencilSize = 1) {
-   int64_t optimValue = std::numeric_limits<int64_t>::max();
+   int64_t minimumCost = std::numeric_limits<int64_t>::max();
    std::array dd = {1, 1, 1};
    const std::array minDomainSize = {
        globalSize[0] == 1 ? 1 : stencilSize,
@@ -106,6 +106,7 @@ static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_
 
    const auto ni = std::min(nProcs, (Task_t)(globalSize[0] / minDomainSize[0]));
    const auto nj = std::min(nProcs, (Task_t)(globalSize[1] / minDomainSize[1]));
+   const auto nk = std::min(nProcs, (Task_t)(globalSize[2] / minDomainSize[2]));
    for (Task_t i = 1; i <= ni; i++) {
       for (Task_t j = 1; j <= nj; j++) {
          const Task_t k = nProcs / (i * j);
@@ -114,7 +115,7 @@ static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_
          }
 
          // No need to optimize an incompatible DD, also checks for missing remainders
-         if (i * j * k != nProcs || k > (Task_t)(globalSize[2] / minDomainSize[2])) {
+         if (i * j * k != nProcs || k > nk) {
             continue;
          }
 
@@ -124,32 +125,24 @@ static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_
              calcLocalSize(globalSize[2], k, 0),
          };
 
-         int64_t value = (i > 1 ? processBox[1] * processBox[2] : 0) + (j > 1 ? processBox[0] * processBox[2] : 0) +
-                         (k > 1 ? processBox[0] * processBox[1] : 0);
-
-         // account for singular domains
-         if (i != 1 && j != 1 && k != 1) {
-            value *= 13; // 26 neighbours to communicate to
-         }
-         if (i == 1 && j != 1 && k != 1) {
-            value *= 4; // 8 neighbours to communicate to
-         }
-         if (i != 1 && j == 1 && k != 1) {
-            value *= 4; // 8 neighbours to communicate to
-         }
-         if (i != 1 && j != 1 && k == 1) {
-            value *= 4; // 8 neighbours to communicate to
-         }
-         // else: 2 neighbours to communicate to, no need to adjust
-
-         if (value < optimValue) {
-            optimValue = value;
+         // clang-format off
+         const int64_t baseCost = (i > 1 ? processBox[1] * processBox[2] : 0)
+                                + (j > 1 ? processBox[0] * processBox[2] : 0)
+                                + (k > 1 ? processBox[0] * processBox[1] : 0);
+         const int64_t neighborMultiplier = (i != 1 && j != 1 && k != 1) * 13
+                                          + (i == 1 && j != 1 && k != 1) * 4
+                                          + (i != 1 && j == 1 && k != 1) * 4
+                                          + (i != 1 && j != 1 && k == 1) * 4;
+         // clang-format on
+         const int64_t cost = baseCost * neighborMultiplier;
+         if (cost < minimumCost) {
+            minimumCost = cost;
             dd = {i, j, k};
          }
       }
    }
 
-   if (optimValue == std::numeric_limits<int64_t>::max() || (Task_t)(dd[0] * dd[1] * dd[2]) != nProcs) {
+   if (minimumCost == std::numeric_limits<int64_t>::max() || (Task_t)(dd[0] * dd[1] * dd[2]) != nProcs) {
       throw std::runtime_error("FSGrid computeDomainDecomposition failed");
    }
 
