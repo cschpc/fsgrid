@@ -44,7 +44,7 @@ typedef int32_t Task_t;
 static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t nTasks, Task_t taskIndex) {
    const FsIndex_t nPerTask = numCells / nTasks;
    const FsIndex_t remainder = numCells % nTasks;
-   return taskIndex < remainder ? nPerTask + 1 : nPerTask;
+   return nPerTask + (taskIndex < remainder);
 }
 
 //! Helper function: calculate position of the local coordinate space for the given dimension
