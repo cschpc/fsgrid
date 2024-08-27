@@ -6,11 +6,11 @@ set(testname ${PROJECT_NAME}_mpi_tests)
 
 add_executable(${testname}
     main.cpp
-    domain_decomposition.cpp
+    tools_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE
-    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/src"
 )
 
 target_link_libraries(

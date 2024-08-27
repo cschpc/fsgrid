@@ -4,11 +4,11 @@ set(testname ${PROJECT_NAME}_unit_tests)
 
 add_executable(
     ${testname}
-    foo.cpp
+    tools_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE
-    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/src"
     )
 
 target_link_libraries(
