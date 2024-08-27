@@ -2,6 +2,7 @@
 
 #include <array>
 #include <gtest/gtest.h>
+#include <mpi.h>
 
 struct Decomposition {
     int32_t x = 0u;
@@ -18,13 +19,19 @@ struct SystemSize {
 Decomposition computeDecomposition(const SystemSize systemSize,
                                    const uint32_t nProcs) {
     std::array<FsGridTools::Task_t, 3> dd;
+    int myRank = 0;
+    int MPI_flag = 0;
+    MPI_Initialized(&MPI_flag);
+    if (MPI_flag) {
+       MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+    }
     FsGridTools::computeDomainDecomposition(
         {
             systemSize.x,
             systemSize.y,
             systemSize.z,
         },
-        nProcs, dd, 1, false);
+        nProcs, dd, myRank, 1, false);
 
     return Decomposition{dd[0], dd[1], dd[2]};
 }
