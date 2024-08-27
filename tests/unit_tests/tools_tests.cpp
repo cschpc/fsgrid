@@ -136,8 +136,8 @@ TEST(FsGridToolsTests, size_256_128_256_nprocs_32) {
 TEST(FsGridToolsTests, size_256_256_128_nprocs_32) {
    const auto [x, y, z] = computeDecomposition(SystemSize{256, 256, 128}, 32);
    ASSERT_EQ(x, 1);
-   ASSERT_EQ(y, 32);
-   ASSERT_EQ(z, 1);
+   ASSERT_EQ(y, 1);
+   ASSERT_EQ(z, 32);
 }
 
 TEST(FsGridToolsTests, size_256_256_256_nprocs_1) {
@@ -192,22 +192,22 @@ TEST(FsGridToolsTests, size_256_128_256_nprocs_64) {
 TEST(FsGridToolsTests, size_256_256_128_nprocs_64) {
    const auto [x, y, z] = computeDecomposition(SystemSize{256, 256, 128}, 64);
    ASSERT_EQ(x, 1);
-   ASSERT_EQ(y, 64);
-   ASSERT_EQ(z, 1);
+   ASSERT_EQ(y, 1);
+   ASSERT_EQ(z, 64);
 }
 
 TEST(FsGridToolsTests, size_1024_256_512_nprocs_64) {
    const auto [x, y, z] = computeDecomposition(SystemSize{1024, 256, 512}, 64);
-   ASSERT_EQ(x, 64);
+   ASSERT_EQ(x, 1);
    ASSERT_EQ(y, 1);
-   ASSERT_EQ(z, 1);
+   ASSERT_EQ(z, 64);
 }
 
 TEST(FsGridToolsTests, size_256_512_128) {
    const auto [x, y, z] = computeDecomposition(SystemSize{256, 512, 128}, 64);
    ASSERT_EQ(x, 1);
-   ASSERT_EQ(y, 64);
-   ASSERT_EQ(z, 1);
+   ASSERT_EQ(y, 1);
+   ASSERT_EQ(z, 64);
 }
 
 TEST(FsGridToolsTests, size_64_128_256_nprocs_64) {
