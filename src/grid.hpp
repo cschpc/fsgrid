@@ -26,9 +26,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <iomanip>
+#include <ios>
 #include <iostream>
 #include <mpi.h>
 #include <sstream>
+#include <type_traits>
 #include <vector>
 
 /*! Simple cartesian, non-loadbalancing MPI Grid for use with the fieldsolver
@@ -817,24 +820,47 @@ public:
    /*! Get the decomposition array*/
    std::array<Task_t, 3>& getDecomposition() { return ntasksPerDim; }
 
-   /*! Physical grid spacing and physical coordinate space start.
-    */
-   double DX;
-   double DY;
-   double DZ;
-   std::array<double, 3> physicalGlobalStart;
-
    std::string display() const {
       std::stringstream ss;
-      auto pushContainerValues = [&ss](auto container) {
+      std::ios defaultState(nullptr);
+      defaultState.copyfmt(ss);
+
+      auto pushContainerValues = [&ss, &defaultState](auto container, bool asByteStr = false, uint32_t nPerLine = 0,
+                                                      uint32_t numTabs = 2) {
+         nPerLine = nPerLine == 0 ? container.size() : nPerLine;
+         const uint32_t numBytes = sizeof(decltype(container[0]));
+         if (asByteStr) {
+            ss << std::hex << std::setfill('0') << std::uppercase;
+         }
+
          uint32_t i = 1;
          for (const auto& v : container) {
-            ss << v;
+            if (asByteStr) {
+               ss << "0x" << std::setw(2 * numBytes);
+               if constexpr (std::is_integral_v<typename std::remove_reference<decltype(v)>::type>) {
+                  ss << static_cast<int64_t>(
+                      static_cast<std::make_unsigned_t<typename std::remove_reference<decltype(v)>::type>>(v));
+               } else {
+                  ss << v;
+               }
+            } else {
+               ss << v;
+            }
+
             if (i < container.size()) {
                ss << ", ";
             }
+            if (i % nPerLine == 0 && i < container.size()) {
+               ss << "\n";
+               for (uint32_t j = 0; j < numTabs; j++) {
+                  ss << "\t";
+               }
+            }
+
             i++;
          }
+
+         ss.copyfmt(defaultState);
       };
 
       ss << "{";
@@ -844,53 +870,60 @@ public:
       ss << "\n\tcomm3d_aux: " << comm3d_aux;
       ss << "\n\trank: " << rank;
       ss << "\n\tnumRequests: " << numRequests;
-      ss << "\n\trequests: [";
+      ss << "\n\trequests: [\n\t\t";
       pushContainerValues(requests);
-      ss << "]";
-      ss << "\n\tneigbour: [";
-      pushContainerValues(neighbour);
-      ss << "]";
-      ss << "\n\tneigbour_index: [";
-      pushContainerValues(neighbour_index);
-      ss << "]";
-      ss << "\n\tntasksPerDim: [";
+      ss << "\n\t]";
+      ss << "\n\tneigbour: [\n\t\t";
+      pushContainerValues(neighbour, true, 9);
+      ss << "\n\t]";
+      ss << "\n\tneigbour_index: [\n\t\t";
+      pushContainerValues(neighbour_index, true, 9);
+      ss << "\n\t]";
+      ss << "\n\tntasksPerDim: [\n\t\t";
       pushContainerValues(ntasksPerDim);
-      ss << "]";
-      ss << "\n\ttaskPosition: [";
+      ss << "\n\t]";
+      ss << "\n\ttaskPosition: [\n\t\t";
       pushContainerValues(taskPosition);
-      ss << "]";
-      ss << "\n\tperiodic: [";
+      ss << "\n\t]";
+      ss << "\n\tperiodic: [\n\t\t";
       pushContainerValues(periodic);
-      ss << "]";
-      ss << "\n\tglobalSize: [";
+      ss << "\n\t]";
+      ss << "\n\tglobalSize: [\n\t\t";
       pushContainerValues(globalSize);
-      ss << "]";
-      ss << "\n\tlocalSize: [";
+      ss << "\n\t]";
+      ss << "\n\tlocalSize: [\n\t\t";
       pushContainerValues(localSize);
-      ss << "]";
-      ss << "\n\tlocalStart: [";
+      ss << "\n\t]";
+      ss << "\n\tlocalStart: [\n\t\t";
       pushContainerValues(localStart);
-      ss << "]";
-      ss << "\n\tneigbourSendType: [";
-      pushContainerValues(neighbourSendType);
-      ss << "]";
-      ss << "\n\tneighbourReceiveType: [";
-      pushContainerValues(neighbourReceiveType);
-      ss << "]";
+      ss << "\n\t]";
+      ss << "\n\tneigbourSendType: [\n\t\t";
+      pushContainerValues(neighbourSendType, true, 9);
+      ss << "\n\t]";
+      ss << "\n\tneighbourReceiveType: [\n\t\t";
+      pushContainerValues(neighbourReceiveType, true, 9);
+      ss << "\n\t]";
       ss << "\n\tinfo on data:";
       ss << "\n\t\tcapacity: " << data.capacity();
       ss << "\n\t\tsize: " << data.size();
-      ss << "\n\t\tdata.front: [";
+      ss << "\n\t\tdata.front: [\n\t\t\t";
       pushContainerValues(data.front());
-      ss << "]";
-      ss << "\n\t\tdata.back: [";
+      ss << "\n\t\t]";
+      ss << "\n\t\tdata.back: [\n\t\t\t";
       pushContainerValues(data.back());
-      ss << "]";
+      ss << "\n\t\t]";
 
       ss << "\n}";
 
       return ss.str();
    }
+
+   /*! Physical grid spacing and physical coordinate space start.
+    */
+   double DX = 0.0;
+   double DY = 0.0;
+   double DZ = 0.0;
+   std::array<double, 3> physicalGlobalStart = {};
 
 private:
    //! MPI Cartesian communicator used in this grid
@@ -899,30 +932,37 @@ private:
    MPI_Comm comm3d = MPI_COMM_NULL;
    MPI_Comm comm3d_aux = MPI_COMM_NULL;
    int32_t rank; //!< This task's rank in the communicator
-   std::vector<MPI_Request> requests;
-   uint numRequests;
+   std::vector<MPI_Request> requests = {};
+   uint numRequests = 0;
 
-   std::array<int32_t, 27> neighbour; //!< Tasks of the 26 neighbours (plus ourselves)
-   std::vector<char> neighbour_index; //!< Lookup table from rank to index in the neighbour array
+   std::array<int32_t, 27> neighbour = {}; //!< Tasks of the 26 neighbours (plus ourselves)
+   std::vector<char> neighbour_index = {}; //!< Lookup table from rank to index in the neighbour array
 
    // We have, fundamentally, two different coordinate systems we're dealing with:
    // 1) Task grid in the MPI_Cartcomm
-   std::array<Task_t, 3> ntasksPerDim; //!< Number of tasks in each direction
-   std::array<Task_t, 3> taskPosition; //!< This task's position in the 3d task grid
+
+   //!< Number of tasks in each direction
+   std::array<Task_t, 3> ntasksPerDim = {};
+   //!< This task's position in the 3d task grid
+   std::array<Task_t, 3> taskPosition = {};
+
    // 2) Cell numbers in global and local view
 
-   std::array<bool, 3> periodic;       //!< Information about whether a given direction is periodic
-   std::array<FsSize_t, 3> globalSize; //!< Global size of the simulation space, in cells
-   std::array<FsIndex_t, 3> localSize; //!< Local size of simulation space handled by this task (without ghost cells)
-   std::array<FsIndex_t, 3>
-       storageSize;                     //!< Local size of simulation space handled by this task (including ghost cells)
-   std::array<FsIndex_t, 3> localStart; //!< Offset of the local
-                                        //! coordinate system against
-                                        //! the global one
-
-   std::array<MPI_Datatype, 27> neighbourSendType;    //!< Datatype for sending data
-   std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
+   //!< Information about whether a given direction is periodic
+   std::array<bool, 3> periodic = {};
+   //!< Global size of the simulation space, in cells
+   std::array<FsSize_t, 3> globalSize = {};
+   //!< Local size of simulation space handled by this task (without ghost cells)
+   std::array<FsIndex_t, 3> localSize = {};
+   //!< Local size of simulation space handled by this task (including ghost cells)
+   std::array<FsIndex_t, 3> storageSize = {};
+   //!< Offset of the local coordinate system against the global one
+   std::array<FsIndex_t, 3> localStart = {};
+   //!< Datatype for sending data
+   std::array<MPI_Datatype, 27> neighbourSendType = {};
+   //!< Datatype for receiving data
+   std::array<MPI_Datatype, 27> neighbourReceiveType = {};
 
    //! Actual storage of field data
-   std::vector<T> data;
+   std::vector<T> data = {};
 };
