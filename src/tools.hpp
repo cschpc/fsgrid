@@ -37,24 +37,23 @@ typedef int32_t Task_t;
 
 //! Helper function: calculate size of the local coordinate space for the given dimension
 // \param numCells Number of cells in the global Simulation, in this dimension
-// \param nTasks Total number of tasks in this dimension
+// \param numTasks Total number of tasks in this dimension
 // \param taskIndex This task's position in this dimension
 // \return Number of cells for this task's local domain (actual cells, not counting ghost cells)
-static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t nTasks, Task_t taskIndex) {
-   const FsIndex_t nPerTask = numCells / nTasks;
-   const FsIndex_t remainder = numCells % nTasks;
+static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
+   const FsIndex_t nPerTask = numCells / numTasks;
+   const FsIndex_t remainder = numCells % numTasks;
    return nPerTask + (taskIndex < remainder);
 }
 
 //! Helper function: calculate position of the local coordinate space for the given dimension
 // \param numCells number of cells
-// \param nTasks Total number of tasks in this dimension
+// \param numTasks Total number of tasks in this dimension
 // \param taskIndex This task's position in this dimension
 // \return Cell number at which this task's domains cells start (actual cells, not counting ghost cells)
-static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t nTasks, Task_t taskIndex) {
-   const FsIndex_t n_per_task = numCells / nTasks;
-   const FsIndex_t remainder = numCells % nTasks;
-   return taskIndex * calcLocalSize(numCells, nTasks, taskIndex) + (taskIndex >= remainder) * remainder;
+static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
+   const FsIndex_t remainder = numCells % numTasks;
+   return taskIndex * calcLocalSize(numCells, numTasks, taskIndex) + (taskIndex >= remainder) * remainder;
 }
 
 //! Helper function: given a global cellID, calculate the global cell coordinate from it.
@@ -94,27 +93,29 @@ static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::arra
 
 //! Helper function to optimize decomposition of this grid over the given number of tasks
 static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& globalSize, Task_t nProcs,
-                                                        int stencilSize = 1) {
-   int64_t minimumCost = std::numeric_limits<int64_t>::max();
-   std::array dd = {1, 1, 1};
+                                                        int32_t stencilSize = 1) {
    const std::array minDomainSize = {
        globalSize[0] == 1 ? 1 : stencilSize,
        globalSize[1] == 1 ? 1 : stencilSize,
        globalSize[2] == 1 ? 1 : stencilSize,
    };
+   const std::array maxDomainSize = {
+       std::min(nProcs, static_cast<Task_t>(globalSize[0] / minDomainSize[0])),
+       std::min(nProcs, static_cast<Task_t>(globalSize[1] / minDomainSize[1])),
+       std::min(nProcs, static_cast<Task_t>(globalSize[2] / minDomainSize[2])),
+   };
 
-   const auto ni = std::min(nProcs, (Task_t)(globalSize[0] / minDomainSize[0]));
-   const auto nj = std::min(nProcs, (Task_t)(globalSize[1] / minDomainSize[1]));
-   const auto nk = std::min(nProcs, (Task_t)(globalSize[2] / minDomainSize[2]));
-   for (Task_t i = 1; i <= ni; i++) {
-      for (Task_t j = 1; j <= nj; j++) {
+   int64_t minimumCost = std::numeric_limits<int64_t>::max();
+   std::array dd = {1, 1, 1};
+   for (Task_t i = 1; i <= maxDomainSize[0]; i++) {
+      for (Task_t j = 1; j <= maxDomainSize[1]; j++) {
          const Task_t k = nProcs / (i * j);
          if (k == 0) {
             break;
          }
 
          // No need to optimize an incompatible DD, also checks for missing remainders
-         if (i * j * k != nProcs || k > nk) {
+         if (i * j * k != nProcs || k > maxDomainSize[2]) {
             continue;
          }
 
