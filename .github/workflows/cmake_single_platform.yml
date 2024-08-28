@@ -45,5 +45,6 @@ jobs:
       working-directory: ${{github.workspace}}
       run: >
         ctest
-        --test-dir ${{github.workspace}}/build/${{env.BUILD_TYPE}}
+        --test-dir ${{github.workspace}}/build/
+        -C ${{env.BUILD_TYPE}}
         --output-on-failure
