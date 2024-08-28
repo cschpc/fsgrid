@@ -25,6 +25,7 @@
 #include <array>
 #include <iostream>
 #include <mpi.h>
+#include <sstream>
 #include <stdint.h>
 #include <stdio.h>
 #include <vector>
@@ -818,6 +819,74 @@ public:
    double DY;
    double DZ;
    std::array<double, 3> physicalGlobalStart;
+
+   std::string display() const {
+      std::stringstream ss;
+      auto pushContainerValues = [&ss](auto container) {
+         uint32_t i = 1;
+         for (const auto& v : container) {
+            ss << v;
+            if (i < container.size()) {
+               ss << ", ";
+            }
+            i++;
+         }
+      };
+
+      ss << "{";
+      ss << "\n\tcomm1d: " << comm1d;
+      ss << "\n\tcomm1d_aux: " << comm1d_aux;
+      ss << "\n\tcomm3d: " << comm3d;
+      ss << "\n\tcomm3d_aux: " << comm3d_aux;
+      ss << "\n\trank: " << rank;
+      ss << "\n\tnumRequests: " << numRequests;
+      ss << "\n\trequests: [";
+      pushContainerValues(requests);
+      ss << "]";
+      ss << "\n\tneigbour: [";
+      pushContainerValues(neighbour);
+      ss << "]";
+      ss << "\n\tneigbour_index: [";
+      pushContainerValues(neighbour_index);
+      ss << "]";
+      ss << "\n\tntasksPerDim: [";
+      pushContainerValues(ntasksPerDim);
+      ss << "]";
+      ss << "\n\ttaskPosition: [";
+      pushContainerValues(taskPosition);
+      ss << "]";
+      ss << "\n\tperiodic: [";
+      pushContainerValues(periodic);
+      ss << "]";
+      ss << "\n\tglobalSize: [";
+      pushContainerValues(globalSize);
+      ss << "]";
+      ss << "\n\tlocalSize: [";
+      pushContainerValues(localSize);
+      ss << "]";
+      ss << "\n\tlocalStart: [";
+      pushContainerValues(localStart);
+      ss << "]";
+      ss << "\n\tneigbourSendType: [";
+      pushContainerValues(neighbourSendType);
+      ss << "]";
+      ss << "\n\tneighbourReceiveType: [";
+      pushContainerValues(neighbourReceiveType);
+      ss << "]";
+      ss << "\n\tinfo on data:";
+      ss << "\n\t\tcapacity: " << data.capacity();
+      ss << "\n\t\tsize: " << data.size();
+      ss << "\n\t\tdata.front: [";
+      pushContainerValues(data.front());
+      ss << "]";
+      ss << "\n\t\tdata.back: [";
+      pushContainerValues(data.back());
+      ss << "]";
+
+      ss << "\n}";
+
+      return ss.str();
+   }
 
 private:
    //! MPI Cartesian communicator used in this grid
