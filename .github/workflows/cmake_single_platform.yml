@@ -31,7 +31,7 @@ jobs:
         -B ${{github.workspace}}/build
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -Dproject_name=${{env.PROJECT_NAME}}
-        -DMPI_TEST_NUM_PROCS=4
+        -DMPI_TEST_NUM_PROCS=16
         -DMPI_TEST_EXTRA_FLAGS=--oversubscribe
 
     - name: Build
@@ -42,16 +42,8 @@ jobs:
 
     - name: Test
       id: test
-      working-directory: ${{github.workspace}}/build
+      working-directory: ${{github.workspace}}
       run: >
         ctest
-        -C ${{env.BUILD_TYPE}}
-
-    - name: Verbose re-run failed tests
-      if: failure() && steps.test.outcome == 'failure'
-      working-directory: ${{github.workspace}}/build
-      run: >
-        ctest
-        -C ${{env.BUILD_TYPE}}
-        --rerun-failed
+        --test-dir ${{github.workspace}}/build/${{env.BUILD_TYPE}}
         --output-on-failure
