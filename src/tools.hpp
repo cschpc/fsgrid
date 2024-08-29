@@ -22,9 +22,13 @@
 */
 #include <algorithm>
 #include <array>
+#include <iostream>
 #include <limits>
+#include <mpi.h>
 #include <stdexcept>
 #include <stdint.h>
+
+#define FSGRID_MPI_CHECK(status, ...) FsGridTools::writeToCerrAndThrowIfFailed(status != MPI_SUCCESS, __VA_ARGS__)
 
 namespace FsGridTools {
 // Size type for global array indices
@@ -147,5 +151,21 @@ static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_
    }
 
    return dd;
+}
+
+template <typename... Args> void cerrArgs(Args...);
+template <> inline void cerrArgs() {}
+template <typename T> void cerrArgs(T t) { std::cerr << t << "\n"; }
+template <typename Head, typename... Tail> void cerrArgs(Head head, Tail... tail) {
+   cerrArgs(head);
+   cerrArgs(tail...);
+}
+
+// Recursively write all arguments to cerr if status is not success, then throw
+template <typename... Args> void writeToCerrAndThrowIfFailed(bool failed, Args... args) {
+   if (failed) {
+      cerrArgs(args...);
+      throw std::runtime_error("Unrecoverable error encountered in FsGrid, consult cerr for more information");
+   }
 }
 } // namespace FsGridTools
