@@ -57,16 +57,16 @@ public:
     * \param MPI_Comm The MPI communicator this grid should use.
     * \param isPeriodic An array specifying, for each dimension, whether it is to be treated as periodic.
     */
-   FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parent_comm, std::array<bool, 3> isPeriodic,
+   FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parentComm, std::array<bool, 3> isPeriodic,
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
        : globalSize(globalSize) {
       int32_t size;
 
-      // Get parent_comm info
+      // Get parentComm info
       int32_t parentRank;
-      MPI_Comm_rank(parent_comm, &parentRank);
+      FSGRID_MPI_CHECK(MPI_Comm_rank(parentComm, &parentRank), "Couldn't get rank from parent communicator");
       int32_t parentSize;
-      MPI_Comm_size(parent_comm, &parentSize);
+      FSGRID_MPI_CHECK(MPI_Comm_size(parentComm, &parentSize), "Couldn't get size from parent communicator");
 
       // If environment variable FSGRID_PROCS is set,
       // use that for determining the number of FS-processes
@@ -104,11 +104,12 @@ public:
 
       // Create a temporary FS subcommunicator for the MPI_Cart_create
       int32_t colorFs = (parentRank < size) ? 1 : MPI_UNDEFINED;
-      MPI_Comm_split(parent_comm, colorFs, parentRank, &comm1d);
+      FSGRID_MPI_CHECK(MPI_Comm_split(parentComm, colorFs, parentRank, &comm1d),
+                       "Couldn's split parent communicator to subcommunicators");
 
       if (colorFs != MPI_UNDEFINED) {
          // Create cartesian communicator. Note, that reorder is false so
-         // ranks match the ones in parent_comm
+         // ranks match the ones in parentComm
          FSGRID_MPI_CHECK(MPI_Cart_create(comm1d, 3, ntasksPerDim.data(), isPeriodicInt.data(), 0, &comm3d),
                           "Creating cartesian communicatior failed when attempting to create FsGrid!");
          FSGRID_MPI_CHECK(MPI_Comm_rank(comm3d, &rank), "Getting rank failed when attempting to create FsGrid!");
@@ -120,7 +121,8 @@ public:
       // Create a temporary aux subcommunicator for the (Aux) MPI_Cart_create
       int32_t colorAux =
           (parentRank > (parentSize - 1) % size) ? (parentRank - (parentSize % size)) / size : MPI_UNDEFINED;
-      MPI_Comm_split(parent_comm, colorAux, parentRank, &comm1d_aux);
+      FSGRID_MPI_CHECK(MPI_Comm_split(parentComm, colorAux, parentRank, &comm1d_aux),
+                       "Couldn's split parent communicator to auxiliary subcommunicators");
 
       int32_t rankAux;
       std::array<int32_t, 3> taskPositionAux;
@@ -144,8 +146,10 @@ public:
                 (colorFs != MPI_UNDEFINED) ? parentRank + i * size + (parentSize - 1) % size + 1 : MPI_PROC_NULL;
             if (dest >= parentSize)
                dest = MPI_PROC_NULL;
-            MPI_Isend(&rank, 1, MPI_INT, dest, 9274, parent_comm, &request[2 * i]);
-            MPI_Isend(taskPosition.data(), 3, MPI_INT, dest, 9275, parent_comm, &request[2 * i + 1]);
+            FSGRID_MPI_CHECK(MPI_Isend(&rank, 1, MPI_INT, dest, 9274, parentComm, &request[2 * i]),
+                             "Failed to send comm3d rank");
+            FSGRID_MPI_CHECK(MPI_Isend(taskPosition.data(), 3, MPI_INT, dest, 9275, parentComm, &request[2 * i + 1]),
+                             "Failed to send comm3d taskPosition");
          }
 
          // All Aux ranks receive the true comm3d rank and taskPosition data from
@@ -156,10 +160,13 @@ public:
                               ? parentRank - (parentRank - (parentSize % size)) / size * size - parentSize % size
                               : MPI_PROC_NULL;
 
-         MPI_Irecv(&rankRecv, 1, MPI_INT, source, 9274, parent_comm, &request[(parentSize - 1) / size * 2]);
-         MPI_Irecv(taskPositionRecv.data(), 3, MPI_INT, source, 9275, parent_comm,
-                   &request[(parentSize - 1) / size * 2 + 1]);
-         MPI_Waitall((parentSize - 1) / size * 2 + 2, request, MPI_STATUS_IGNORE);
+         FSGRID_MPI_CHECK(
+             MPI_Irecv(&rankRecv, 1, MPI_INT, source, 9274, parentComm, &request[(parentSize - 1) / size * 2]),
+             "Failed to receive comm3d rank");
+         FSGRID_MPI_CHECK(MPI_Irecv(taskPositionRecv.data(), 3, MPI_INT, source, 9275, parentComm,
+                                    &request[(parentSize - 1) / size * 2 + 1]),
+                          "Couldn't receive taskPosition");
+         FSGRID_MPI_CHECK(MPI_Waitall((parentSize - 1) / size * 2 + 2, request, MPI_STATUS_IGNORE), "Waitall failed");
 
          if (colorAux != MPI_UNDEFINED) {
             if (rankRecv != rankAux || taskPositionRecv[0] != taskPositionAux[0] ||
@@ -284,7 +291,7 @@ public:
       data.resize(totalStorageSize);
 
       MPI_Datatype mpiTypeT;
-      MPI_Type_contiguous(sizeof(T), MPI_BYTE, &mpiTypeT);
+      FSGRID_MPI_CHECK(MPI_Type_contiguous(sizeof(T), MPI_BYTE, &mpiTypeT), "Failed to create a contiguous data type");
       for (int32_t x = -1; x <= 1; x++) {
          for (int32_t y = -1; y <= 1; y++) {
             for (int32_t z = -1; z <= 1; z++) {
@@ -337,8 +344,10 @@ public:
                swapArray(swappedStorageSize);
                swapArray(subarraySize);
                swapArray(subarrayStart);
-               MPI_Type_create_subarray(3, swappedStorageSize.data(), subarraySize.data(), subarrayStart.data(),
-                                        MPI_ORDER_C, mpiTypeT, &(neighbourSendType[shiftId]));
+               FSGRID_MPI_CHECK(MPI_Type_create_subarray(3, swappedStorageSize.data(), subarraySize.data(),
+                                                         subarrayStart.data(), MPI_ORDER_C, mpiTypeT,
+                                                         &(neighbourSendType[shiftId])),
+                                "Failed to create a subarray type");
 
                if (x == 1)
                   subarrayStart[0] = 0;
@@ -363,17 +372,19 @@ public:
                      subarrayStart[i] = 0;
 
                swapArray(subarrayStart);
-               MPI_Type_create_subarray(3, swappedStorageSize.data(), subarraySize.data(), subarrayStart.data(),
-                                        MPI_ORDER_C, mpiTypeT, &(neighbourReceiveType[shiftId]));
+               FSGRID_MPI_CHECK(MPI_Type_create_subarray(3, swappedStorageSize.data(), subarraySize.data(),
+                                                         subarrayStart.data(), MPI_ORDER_C, mpiTypeT,
+                                                         &(neighbourReceiveType[shiftId])),
+                                "Failed to create a subarray type");
             }
          }
       }
 
       for (int32_t i = 0; i < 27; i++) {
          if (neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-            MPI_Type_commit(&(neighbourReceiveType[i]));
+            FSGRID_MPI_CHECK(MPI_Type_commit(&(neighbourReceiveType[i])), "Failed to commit MPI type");
          if (neighbourSendType[i] != MPI_DATATYPE_NULL)
-            MPI_Type_commit(&(neighbourSendType[i]));
+            FSGRID_MPI_CHECK(MPI_Type_commit(&(neighbourSendType[i])), "Failed to commit MPI type");
       }
    }
 
@@ -391,20 +402,20 @@ public:
       if (rank != -1) {
          for (int32_t i = 0; i < 27; i++) {
             if (neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-               MPI_Type_free(&(neighbourReceiveType[i]));
+               FSGRID_MPI_CHECK(MPI_Type_free(&(neighbourReceiveType[i])), "Failed to free MPI type");
             if (neighbourSendType[i] != MPI_DATATYPE_NULL)
-               MPI_Type_free(&(neighbourSendType[i]));
+               FSGRID_MPI_CHECK(MPI_Type_free(&(neighbourSendType[i])), "Failed to free MPI type");
          }
       }
 
       if (comm3d != MPI_COMM_NULL)
-         MPI_Comm_free(&comm3d);
+         FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
       if (comm3d_aux != MPI_COMM_NULL)
-         MPI_Comm_free(&comm3d_aux);
+         FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d_aux), "Failed to free MPI comm3d aux");
       if (comm1d != MPI_COMM_NULL)
-         MPI_Comm_free(&comm1d);
+         FSGRID_MPI_CHECK(MPI_Comm_free(&comm1d), "Failed to free MPI comm1d");
       if (comm1d_aux != MPI_COMM_NULL)
-         MPI_Comm_free(&comm1d_aux);
+         FSGRID_MPI_CHECK(MPI_Comm_free(&comm1d_aux), "Failed to free MPI comm1d aux");
    }
 
    /*! Returns the task responsible, and its localID for handling the cell with the given GlobalID
@@ -528,8 +539,10 @@ public:
                int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
                int32_t receiveId = (1 - x) * 9 + (1 - y) * 3 + (1 - z);
                if (neighbour[receiveId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d,
-                            &(receiveRequests[shiftId]));
+                  FSGRID_MPI_CHECK(MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId], neighbour[receiveId],
+                                             shiftId, comm3d, &(receiveRequests[shiftId])),
+                                   "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ",
+                                   neighbour[receiveId]);
                }
             }
          }
@@ -541,14 +554,18 @@ public:
                int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
                int32_t sendId = shiftId;
                if (neighbour[sendId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d,
-                            &(sendRequests[shiftId]));
+                  FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId,
+                                             comm3d, &(sendRequests[shiftId])),
+                                   "Rank ", rank, " failed to send data to neighbor ", sendId, " with rank ",
+                                   neighbour[sendId]);
                }
             }
          }
       }
-      MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE);
-      MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE);
+      FSGRID_MPI_CHECK(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
+                       "Synchronization at ghost cell update failed");
+      FSGRID_MPI_CHECK(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
+                       "Synchronization at ghost cell update failed");
    }
 
    /*! Get the size of the local domain handled by this grid.
@@ -856,10 +873,14 @@ public:
       pushContainerValues(localStart);
       ss << "\n\t]";
       ss << "\n\tneigbourSendType: [\n\t\t";
-      pushContainerValues(neighbourSendType, true, 9);
+      for (const auto& v : getMPITypes(true)) {
+         ss << v.display() << "\n";
+      }
       ss << "\n\t]";
       ss << "\n\tneighbourReceiveType: [\n\t\t";
-      pushContainerValues(neighbourReceiveType, true, 9);
+      for (const auto& v : getMPITypes(false)) {
+         ss << v.display() << "\n";
+      }
       ss << "\n\t]";
       ss << "\n\tinfo on data:";
       ss << "\n\t\tcapacity: " << data.capacity();
@@ -955,13 +976,17 @@ public:
          int numIntegers = 0;
          int numAddresses = 0;
          int numDataTypes = 0;
-         MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &metadatas[i].combiner);
+         FSGRID_MPI_CHECK(
+             MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &metadatas[i].combiner),
+             "Failed to get envelope for type ", mpiType);
 
          metadatas[i].integers.resize(numIntegers);
          metadatas[i].addresses.resize(numAddresses);
          metadatas[i].dataTypes.resize(numDataTypes);
-         MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes, metadatas[i].integers.data(),
-                               metadatas[i].addresses.data(), metadatas[i].dataTypes.data());
+         FSGRID_MPI_CHECK(MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes,
+                                                metadatas[i].integers.data(), metadatas[i].addresses.data(),
+                                                metadatas[i].dataTypes.data()),
+                          "Failed to get type contents for type ", mpiType);
       }
 
       return metadatas;
