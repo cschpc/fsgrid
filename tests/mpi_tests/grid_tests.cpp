@@ -46,12 +46,42 @@ void generateReferenceString(const std::string& filename, const std::string& gri
    }
 }
 
-TEST(FsGridTest, displayGrid) {
+TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference1) {
    int size;
    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
    const auto [grid, filename] =
        makeFsGridAndFilename({1024, 512, 64}, MPI_COMM_WORLD, {false, false, false}, {1, 1, size}, false);
+   const auto [success, refStr] = readRefStr(filename);
+   ASSERT_TRUE(success) << refStr;
+
+   const auto str = grid.display();
+   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                     << refStr << "\nand generated string\n"
+                                     << str << "are not equal";
+}
+
+TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference2) {
+   int size;
+   MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+   const auto [grid, filename] =
+       makeFsGridAndFilename({512, 128, 1024}, MPI_COMM_WORLD, {true, false, true}, {1, size, 1}, false);
+   const auto [success, refStr] = readRefStr(filename);
+   ASSERT_TRUE(success) << refStr;
+
+   const auto str = grid.display();
+   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                     << refStr << "\nand generated string\n"
+                                     << str << "are not equal";
+}
+
+TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference3) {
+   int size;
+   MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+   const auto [grid, filename] =
+       makeFsGridAndFilename({16, 512, 2048}, MPI_COMM_WORLD, {false, false, false}, {size, 1, 1}, false);
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
