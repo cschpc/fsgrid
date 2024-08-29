@@ -51,3 +51,757 @@
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 		]
 }
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 4, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 666, 1, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 4, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 1, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 4, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1024, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 4, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1024, 1, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :-1
+	integers: [
+		
+	]
+	addresses: [
+		
+	]
+	data types: [
+		
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1024, 4, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 1, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1024, 1, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 4, 666, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 1, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 4, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 1, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 666, 1, 1, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 4, 1, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 1, 666, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 666, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 4, 666, 
+		1024, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 5, 667, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 667, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 0, 667, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 5, 1, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 666, 1, 1, 1, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 0, 1, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 5, 0, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 0, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 0, 0, 
+		1025, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 5, 667, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1024, 1, 667, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 0, 667, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1024, 5, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :-1
+	integers: [
+		
+	]
+	addresses: [
+		
+	]
+	data types: [
+		
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1024, 0, 1, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 5, 0, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1024, 1, 0, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1024, 0, 0, 
+		1, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 5, 667, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 667, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 0, 667, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 5, 1, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 666, 1, 1, 1, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 666, 1, 0, 1, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 5, 0, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 4, 1, 1, 1, 0, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}
+{
+
+	combiner :13
+	integers: [
+		3, 6, 668, 1026, 1, 1, 1, 0, 0, 
+		0, 56
+	]
+	addresses: [
+		
+	]
+	data types: [
+		0x8C000005
+	]
+}

@@ -876,6 +876,97 @@ public:
       return ss.str();
    }
 
+   struct MPITypeMetaData {
+      int combiner = -1;
+      std::vector<int> integers;
+      std::vector<MPI_Aint> addresses;
+      std::vector<MPI_Datatype> dataTypes;
+
+      std::string display() const {
+         std::stringstream ss;
+         std::ios defaultState(nullptr);
+         defaultState.copyfmt(ss);
+
+         auto pushContainerValues = [&ss, &defaultState](auto container, bool asByteStr = false, uint32_t nPerLine = 0,
+                                                         uint32_t numTabs = 2) {
+            nPerLine = nPerLine == 0 ? container.size() : nPerLine;
+            const uint32_t numBytes = sizeof(decltype(container[0]));
+            if (asByteStr) {
+               ss << std::hex << std::setfill('0') << std::uppercase;
+            }
+
+            uint32_t i = 1;
+            for (const auto& v : container) {
+               if (asByteStr) {
+                  ss << "0x" << std::setw(2 * numBytes);
+                  if constexpr (std::is_integral_v<typename std::remove_reference<decltype(v)>::type>) {
+                     ss << static_cast<int64_t>(
+                         static_cast<std::make_unsigned_t<typename std::remove_reference<decltype(v)>::type>>(v));
+                  } else {
+                     ss << v;
+                  }
+               } else {
+                  ss << v;
+               }
+
+               if (i < container.size()) {
+                  ss << ", ";
+               }
+               if (i % nPerLine == 0 && i < container.size()) {
+                  ss << "\n";
+                  for (uint32_t j = 0; j < numTabs; j++) {
+                     ss << "\t";
+                  }
+               }
+
+               i++;
+            }
+
+            ss.copyfmt(defaultState);
+         };
+
+         ss << "{\n";
+         ss << "\n\tcombiner :" << combiner;
+         ss << "\n\tintegers: [\n\t\t";
+         pushContainerValues(integers, false, 9);
+         ss << "\n\t]";
+         ss << "\n\taddresses: [\n\t\t";
+         pushContainerValues(addresses, true, 9);
+         ss << "\n\t]";
+         ss << "\n\tdata types: [\n\t\t";
+         pushContainerValues(dataTypes, true, 9);
+         ss << "\n\t]";
+         ss << "\n}";
+
+         return ss.str();
+      }
+   };
+
+   std::array<MPITypeMetaData, 27> getMPITypes(bool send) const {
+      const auto typeVec = send ? neighbourSendType : neighbourReceiveType;
+      std::array<MPITypeMetaData, 27> metadatas;
+      for (size_t i = 0; i < typeVec.size(); i++) {
+         const auto mpiType = typeVec[i];
+
+         if (mpiType == MPI_DATATYPE_NULL) {
+            continue;
+         }
+
+         int numIntegers = 0;
+         int numAddresses = 0;
+         int numDataTypes = 0;
+         MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &metadatas[i].combiner);
+
+         metadatas[i].integers.resize(numIntegers);
+         metadatas[i].addresses.resize(numAddresses);
+         metadatas[i].dataTypes.resize(numDataTypes);
+         MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes, metadatas[i].integers.data(),
+                               metadatas[i].addresses.data(), metadatas[i].dataTypes.data());
+      }
+
+      return metadatas;
+   }
+
    /*! Physical grid spacing and physical coordinate space start.
     */
    double DX = 0.0;

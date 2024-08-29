@@ -2,6 +2,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <mpi.h>
+#include <sstream>
 #include <string>
 #include <tools.hpp>
 #include <utility>
@@ -38,11 +39,24 @@ std::pair<bool, std::string> readRefStr(const std::string& filename) {
    }
 }
 
+template <typename T> std::string makeTestStringFromGrid(const T& grid) {
+   std::stringstream ss;
+   ss << grid.display() << "\n";
+   for (const auto& metadata : grid.getMPITypes(true)) {
+      ss << metadata.display() << "\n";
+   }
+   for (const auto& metadata : grid.getMPITypes(false)) {
+      ss << metadata.display() << "\n";
+   }
+
+   return ss.str();
+}
+
 template <typename T> void generateReferenceString(const std::string& filename, const T& grid) {
    const auto path = getPrefix() + filename;
    std::ofstream file(path);
    if (file.is_open()) {
-      file << grid.display();
+      file << makeTestStringFromGrid(grid);
    }
 }
 
@@ -55,7 +69,7 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference1) {
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
-   const auto str = grid.display();
+   const auto str = makeTestStringFromGrid(grid);
    ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
                                      << refStr << "\nand generated string\n"
                                      << str << "are not equal";
@@ -70,7 +84,7 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference2) {
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
-   const auto str = grid.display();
+   const auto str = makeTestStringFromGrid(grid);
    ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
                                      << refStr << "\nand generated string\n"
                                      << str << "are not equal";
@@ -85,7 +99,7 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference3) {
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
-   const auto str = grid.display();
+   const auto str = makeTestStringFromGrid(grid);
    ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
                                      << refStr << "\nand generated string\n"
                                      << str << "are not equal";
@@ -96,7 +110,7 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference4) {
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
-   const auto str = grid.display();
+   const auto str = makeTestStringFromGrid(grid);
    ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
                                      << refStr << "\nand generated string\n"
                                      << str << "are not equal";
@@ -107,7 +121,7 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference5) {
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
-   const auto str = grid.display();
+   const auto str = makeTestStringFromGrid(grid);
    ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
                                      << refStr << "\nand generated string\n"
                                      << str << "are not equal";
