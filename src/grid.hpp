@@ -869,10 +869,6 @@ public:
       ss << "\n\tcomm3d: " << comm3d;
       ss << "\n\tcomm3d_aux: " << comm3d_aux;
       ss << "\n\trank: " << rank;
-      ss << "\n\tnumRequests: " << numRequests;
-      ss << "\n\trequests: [\n\t\t";
-      pushContainerValues(requests);
-      ss << "\n\t]";
       ss << "\n\tneigbour: [\n\t\t";
       pushContainerValues(neighbour, true, 9);
       ss << "\n\t]";
@@ -931,12 +927,12 @@ private:
    MPI_Comm comm1d_aux = MPI_COMM_NULL;
    MPI_Comm comm3d = MPI_COMM_NULL;
    MPI_Comm comm3d_aux = MPI_COMM_NULL;
-   int32_t rank; //!< This task's rank in the communicator
-   std::vector<MPI_Request> requests = {};
-   uint numRequests = 0;
-
-   std::array<int32_t, 27> neighbour = {}; //!< Tasks of the 26 neighbours (plus ourselves)
-   std::vector<char> neighbour_index = {}; //!< Lookup table from rank to index in the neighbour array
+   //!< This task's rank in the communicator
+   int32_t rank;
+   //!< Tasks of the 26 neighbours (plus ourselves)
+   std::array<int32_t, 27> neighbour = {};
+   //!< Lookup table from rank to index in the neighbour array
+   std::vector<char> neighbour_index = {};
 
    // We have, fundamentally, two different coordinate systems we're dealing with:
    // 1) Task grid in the MPI_Cartcomm
