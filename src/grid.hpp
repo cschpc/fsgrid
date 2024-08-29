@@ -859,7 +859,7 @@ public:
                ss << "MPI_UNDEFINED";
             }
             ss << newliner;
-            ss << "comm size: " << rank;
+            ss << "comm size: " << size;
 
             MPI_Group group = MPI_GROUP_NULL;
             FSGRID_MPI_CHECK(MPI_Comm_group(comm, &group), "Failed to get group from comm ", comm);
@@ -878,38 +878,42 @@ public:
                }
                ss << newliner;
                ss << "group size: " << size;
+               FSGRID_MPI_CHECK(MPI_Group_free(&group), "Failed to free group");
             }
-
-            MPI_Group remotegroup = MPI_GROUP_NULL;
-            FSGRID_MPI_CHECK(MPI_Comm_remote_group(comm, &remotegroup), "Failed to get remotegroup from comm ", comm);
-            if (remotegroup != MPI_GROUP_NULL) {
-               int rank = 0;
-               FSGRID_MPI_CHECK(MPI_Group_rank(remotegroup, &rank), "Failed to get rank from remotegroup ",
-                                remotegroup);
-               int size = 0;
-               FSGRID_MPI_CHECK(MPI_Group_size(remotegroup, &size), "Failed to get size from remotegroup ",
-                                remotegroup);
-
-               ss << newliner;
-               ss << "remotegroup rank: ";
-               if (rank != MPI_UNDEFINED) {
-                  ss << rank;
-               } else {
-                  ss << "MPI_UNDEFINED";
-               }
-               ss << newliner;
-               ss << "remotegroup size: " << size;
-            }
-
-            int remotesize = 0;
-            FSGRID_MPI_CHECK(MPI_Comm_remote_size(comm, &remotesize), "Failed to get remotesize from comm ", comm);
-            ss << newliner;
-            ss << "remotesize: " << remotesize;
 
             int isInterComm = 0;
             FSGRID_MPI_CHECK(MPI_Comm_test_inter(comm, &isInterComm), "Failed to get intecomm flag from comm ", comm);
             ss << newliner;
             ss << "is intercomm: " << isInterComm;
+            if (isInterComm) {
+               MPI_Group remotegroup = MPI_GROUP_NULL;
+               FSGRID_MPI_CHECK(MPI_Comm_remote_group(comm, &remotegroup), "Failed to get remotegroup from comm ",
+                                comm);
+               if (remotegroup != MPI_GROUP_NULL) {
+                  int rank = 0;
+                  FSGRID_MPI_CHECK(MPI_Group_rank(remotegroup, &rank), "Failed to get rank from remotegroup ",
+                                   remotegroup);
+                  int size = 0;
+                  FSGRID_MPI_CHECK(MPI_Group_size(remotegroup, &size), "Failed to get size from remotegroup ",
+                                   remotegroup);
+
+                  ss << newliner;
+                  ss << "remotegroup rank: ";
+                  if (rank != MPI_UNDEFINED) {
+                     ss << rank;
+                  } else {
+                     ss << "MPI_UNDEFINED";
+                  }
+                  ss << newliner;
+                  ss << "remotegroup size: " << size;
+                  FSGRID_MPI_CHECK(MPI_Group_free(&remotegroup), "Failed to free remotegroup");
+               }
+
+               int remotesize = 0;
+               FSGRID_MPI_CHECK(MPI_Comm_remote_size(comm, &remotesize), "Failed to get remotesize from comm ", comm);
+               ss << newliner;
+               ss << "remotesize: " << remotesize;
+            }
          }
       };
 
@@ -945,12 +949,12 @@ public:
       pushContainerValues(localStart);
       ss << "\n\t]";
       ss << "\n\tneigbourSendType: [";
-      for (const auto& v : getMPITypes(true)) {
+      for (const auto& v : getMPITypes(neighbourSendType)) {
          ss << "\n\t\t" << v.display("\n\t\t");
       }
       ss << "\n\t]";
       ss << "\n\tneighbourReceiveType: [";
-      for (const auto& v : getMPITypes(false)) {
+      for (const auto& v : getMPITypes(neighbourReceiveType)) {
          ss << "\n\t\t" << v.display("\n\t\t");
       }
       ss << "\n\t]";
@@ -973,7 +977,7 @@ public:
       int combiner = -1;
       std::vector<int> integers;
       std::vector<MPI_Aint> addresses;
-      std::vector<MPI_Datatype> dataTypes;
+      std::vector<MPITypeMetaData> metaDatas;
 
       std::string display(std::string newliner) const {
          std::stringstream ss;
@@ -1019,7 +1023,7 @@ public:
          };
 
          ss << "{";
-         ss << newliner << "\tcombiner :" << combiner;
+         ss << newliner << "\tcombiner: " << combiner;
          ss << newliner << "\tintegers: [" << newliner << "\t\t";
          pushContainerValues(integers, false, 9);
          ss << newliner << "\t]";
@@ -1027,7 +1031,9 @@ public:
          pushContainerValues(addresses, true, 9);
          ss << newliner << "\t]";
          ss << newliner << "\tdata types: [" << newliner << "\t\t";
-         pushContainerValues(dataTypes, true, 9);
+         for (const auto& mt : metaDatas) {
+            ss << mt.display(newliner + "\t\t");
+         }
          ss << newliner << "\t]";
          ss << newliner << "}";
 
@@ -1035,13 +1041,11 @@ public:
       }
    };
 
-   std::array<MPITypeMetaData, 27> getMPITypes(bool send) const {
-      const auto typeVec = send ? neighbourSendType : neighbourReceiveType;
-      std::array<MPITypeMetaData, 27> metadatas;
+   template <typename U> std::vector<MPITypeMetaData> getMPITypes(const U& typeVec) const {
+      std::vector<MPITypeMetaData> metadatas(typeVec.size());
       for (size_t i = 0; i < typeVec.size(); i++) {
          const auto mpiType = typeVec[i];
-
-         if (mpiType == MPI_DATATYPE_NULL) {
+         if (mpiType == MPI_DATATYPE_NULL || mpiType == MPI_BYTE) {
             continue;
          }
 
@@ -1054,11 +1058,15 @@ public:
 
          metadatas[i].integers.resize(numIntegers);
          metadatas[i].addresses.resize(numAddresses);
-         metadatas[i].dataTypes.resize(numDataTypes);
+         std::vector<MPI_Datatype> dataTypes(numDataTypes);
          FSGRID_MPI_CHECK(MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes,
                                                 metadatas[i].integers.data(), metadatas[i].addresses.data(),
-                                                metadatas[i].dataTypes.data()),
+                                                dataTypes.data()),
                           "Failed to get type contents for type ", mpiType);
+
+         if (numDataTypes != 0) {
+            metadatas[i].metaDatas = getMPITypes(dataTypes);
+         }
       }
 
       return metadatas;
