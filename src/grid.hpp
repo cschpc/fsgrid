@@ -809,7 +809,7 @@ public:
          nPerLine = nPerLine == 0 ? container.size() : nPerLine;
          const uint32_t numBytes = sizeof(decltype(container[0]));
          if (asByteStr) {
-            ss << std::hex << std::setfill('0') << std::uppercase;
+            ss << std::hex << std::setfill('0');
          }
 
          uint32_t i = 1;
@@ -842,11 +842,83 @@ public:
          ss.copyfmt(defaultState);
       };
 
+      auto pushMPIComm = [&ss, &defaultState](auto prefix, auto comm, auto newliner) {
+         ss << prefix;
+         if (comm == MPI_COMM_NULL) {
+            ss << "MPI_COMM_NULL";
+         } else {
+            int rank = 0;
+            FSGRID_MPI_CHECK(MPI_Comm_rank(comm, &rank), "Failed to get rank from comm ", comm);
+            int size = 0;
+            FSGRID_MPI_CHECK(MPI_Comm_size(comm, &size), "Failed to get size from comm ", comm);
+            ss << newliner;
+            ss << "comm rank: ";
+            if (rank != MPI_UNDEFINED) {
+               ss << rank;
+            } else {
+               ss << "MPI_UNDEFINED";
+            }
+            ss << newliner;
+            ss << "comm size: " << rank;
+
+            MPI_Group group = MPI_GROUP_NULL;
+            FSGRID_MPI_CHECK(MPI_Comm_group(comm, &group), "Failed to get group from comm ", comm);
+            if (group != MPI_GROUP_NULL) {
+               int rank = 0;
+               FSGRID_MPI_CHECK(MPI_Group_rank(group, &rank), "Failed to get rank from group ", group);
+               int size = 0;
+               FSGRID_MPI_CHECK(MPI_Group_size(group, &size), "Failed to get size from group ", group);
+
+               ss << newliner;
+               ss << "group rank: ";
+               if (rank != MPI_UNDEFINED) {
+                  ss << rank;
+               } else {
+                  ss << "MPI_UNDEFINED";
+               }
+               ss << newliner;
+               ss << "group size: " << size;
+            }
+
+            MPI_Group remotegroup = MPI_GROUP_NULL;
+            FSGRID_MPI_CHECK(MPI_Comm_remote_group(comm, &remotegroup), "Failed to get remotegroup from comm ", comm);
+            if (remotegroup != MPI_GROUP_NULL) {
+               int rank = 0;
+               FSGRID_MPI_CHECK(MPI_Group_rank(remotegroup, &rank), "Failed to get rank from remotegroup ",
+                                remotegroup);
+               int size = 0;
+               FSGRID_MPI_CHECK(MPI_Group_size(remotegroup, &size), "Failed to get size from remotegroup ",
+                                remotegroup);
+
+               ss << newliner;
+               ss << "remotegroup rank: ";
+               if (rank != MPI_UNDEFINED) {
+                  ss << rank;
+               } else {
+                  ss << "MPI_UNDEFINED";
+               }
+               ss << newliner;
+               ss << "remotegroup size: " << size;
+            }
+
+            int remotesize = 0;
+            FSGRID_MPI_CHECK(MPI_Comm_remote_size(comm, &remotesize), "Failed to get remotesize from comm ", comm);
+            ss << newliner;
+            ss << "remotesize: " << remotesize;
+
+            int isInterComm = 0;
+            FSGRID_MPI_CHECK(MPI_Comm_test_inter(comm, &isInterComm), "Failed to get intecomm flag from comm ", comm);
+            ss << newliner;
+            ss << "is intercomm: " << isInterComm;
+         }
+      };
+
       ss << "{";
-      ss << "\n\tcomm1d: " << comm1d;
-      ss << "\n\tcomm1d_aux: " << comm1d_aux;
-      ss << "\n\tcomm3d: " << comm3d;
-      ss << "\n\tcomm3d_aux: " << comm3d_aux;
+
+      pushMPIComm("\n\tcomm1d: ", comm1d, "\n\t\t");
+      pushMPIComm("\n\tcomm1d_aux: ", comm1d_aux, "\n\t\t");
+      pushMPIComm("\n\tcomm3d: ", comm3d, "\n\t\t");
+      pushMPIComm("\n\tcomm3d_aux: ", comm3d_aux, "\n\t\t");
       ss << "\n\trank: " << rank;
       ss << "\n\tneigbour: [\n\t\t";
       pushContainerValues(neighbour, true, 9);
@@ -872,14 +944,14 @@ public:
       ss << "\n\tlocalStart: [\n\t\t";
       pushContainerValues(localStart);
       ss << "\n\t]";
-      ss << "\n\tneigbourSendType: [\n\t\t";
+      ss << "\n\tneigbourSendType: [";
       for (const auto& v : getMPITypes(true)) {
-         ss << v.display() << "\n";
+         ss << "\n\t\t" << v.display("\n\t\t");
       }
       ss << "\n\t]";
-      ss << "\n\tneighbourReceiveType: [\n\t\t";
+      ss << "\n\tneighbourReceiveType: [";
       for (const auto& v : getMPITypes(false)) {
-         ss << v.display() << "\n";
+         ss << "\n\t\t" << v.display("\n\t\t");
       }
       ss << "\n\t]";
       ss << "\n\tinfo on data:";
@@ -903,13 +975,13 @@ public:
       std::vector<MPI_Aint> addresses;
       std::vector<MPI_Datatype> dataTypes;
 
-      std::string display() const {
+      std::string display(std::string newliner) const {
          std::stringstream ss;
          std::ios defaultState(nullptr);
          defaultState.copyfmt(ss);
 
-         auto pushContainerValues = [&ss, &defaultState](auto container, bool asByteStr = false, uint32_t nPerLine = 0,
-                                                         uint32_t numTabs = 2) {
+         auto pushContainerValues = [&ss, &defaultState, &newliner](auto container, bool asByteStr = false,
+                                                                    uint32_t nPerLine = 0, uint32_t numTabs = 2) {
             nPerLine = nPerLine == 0 ? container.size() : nPerLine;
             const uint32_t numBytes = sizeof(decltype(container[0]));
             if (asByteStr) {
@@ -934,7 +1006,7 @@ public:
                   ss << ", ";
                }
                if (i % nPerLine == 0 && i < container.size()) {
-                  ss << "\n";
+                  ss << newliner;
                   for (uint32_t j = 0; j < numTabs; j++) {
                      ss << "\t";
                   }
@@ -946,18 +1018,18 @@ public:
             ss.copyfmt(defaultState);
          };
 
-         ss << "{\n";
-         ss << "\n\tcombiner :" << combiner;
-         ss << "\n\tintegers: [\n\t\t";
+         ss << "{";
+         ss << newliner << "\tcombiner :" << combiner;
+         ss << newliner << "\tintegers: [" << newliner << "\t\t";
          pushContainerValues(integers, false, 9);
-         ss << "\n\t]";
-         ss << "\n\taddresses: [\n\t\t";
+         ss << newliner << "\t]";
+         ss << newliner << "\taddresses: [" << newliner << "\t\t";
          pushContainerValues(addresses, true, 9);
-         ss << "\n\t]";
-         ss << "\n\tdata types: [\n\t\t";
+         ss << newliner << "\t]";
+         ss << newliner << "\tdata types: [" << newliner << "\t\t";
          pushContainerValues(dataTypes, true, 9);
-         ss << "\n\t]";
-         ss << "\n}";
+         ss << newliner << "\t]";
+         ss << newliner << "}";
 
          return ss.str();
       }

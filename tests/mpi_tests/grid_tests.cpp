@@ -42,17 +42,10 @@ std::pair<bool, std::string> readRefStr(const std::string& filename) {
 template <typename T> std::string makeTestStringFromGrid(const T& grid) {
    std::stringstream ss;
    ss << grid.display() << "\n";
-   for (const auto& metadata : grid.getMPITypes(true)) {
-      ss << metadata.display() << "\n";
-   }
-   for (const auto& metadata : grid.getMPITypes(false)) {
-      ss << metadata.display() << "\n";
-   }
-
    return ss.str();
 }
 
-template <typename T> void generateReferenceString(const std::string& filename, const T& grid) {
+template <typename T> void generateReferenceString(const T& grid, const std::string& filename) {
    const auto path = getPrefix() + filename;
    std::ofstream file(path);
    if (file.is_open()) {
