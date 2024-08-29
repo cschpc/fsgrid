@@ -58,7 +58,7 @@ public:
     * \param isPeriodic An array specifying, for each dimension, whether it is to be treated as periodic.
     */
    FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parent_comm, std::array<bool, 3> isPeriodic,
-          const std::array<Task_t, 3>& decomposition = {0, 0, 0}, bool verbose = false)
+          const std::array<Task_t, 3>& decomposition = {0, 0, 0})
        : globalSize(globalSize) {
       int32_t size;
 
@@ -136,39 +136,41 @@ public:
       }
 
 #ifdef FSGRID_DEBUG
-      // All FS ranks send their true comm3d rank and taskPosition data to dest
-      MPI_Request* request = new MPI_Request[(parentSize - 1) / size * 2 + 2];
-      for (int32_t i = 0; i < (parentSize - 1) / size; i++) {
-         int32_t dest =
-             (colorFs != MPI_UNDEFINED) ? parentRank + i * size + (parentSize - 1) % size + 1 : MPI_PROC_NULL;
-         if (dest >= parentSize)
-            dest = MPI_PROC_NULL;
-         MPI_Isend(&rank, 1, MPI_INT, dest, 9274, parent_comm, &request[2 * i]);
-         MPI_Isend(taskPosition.data(), 3, MPI_INT, dest, 9275, parent_comm, &request[2 * i + 1]);
-      }
-
-      // All Aux ranks receive the true comm3d rank and taskPosition data from
-      // source and then compare that it matches their aux data
-      std::array<int32_t, 3> taskPositionRecv;
-      int32_t rankRecv;
-      int32_t source = (colorAux != MPI_UNDEFINED)
-                           ? parentRank - (parentRank - (parentSize % size)) / size * size - parentSize % size
-                           : MPI_PROC_NULL;
-
-      MPI_Irecv(&rankRecv, 1, MPI_INT, source, 9274, parent_comm, &request[(parentSize - 1) / size * 2]);
-      MPI_Irecv(taskPositionRecv.data(), 3, MPI_INT, source, 9275, parent_comm,
-                &request[(parentSize - 1) / size * 2 + 1]);
-      MPI_Waitall((parentSize - 1) / size * 2 + 2, request, MPI_STATUS_IGNORE);
-
-      if (colorAux != MPI_UNDEFINED) {
-         if (rankRecv != rankAux || taskPositionRecv[0] != taskPositionAux[0] ||
-             taskPositionRecv[1] != taskPositionAux[1] || taskPositionRecv[2] != taskPositionAux[2]) {
-            std::cerr << "Rank: " << parentRank
-                      << ". Aux cartesian communicator 'comm3d_aux' does not match with 'comm3d' !" << std::endl;
-            throw std::runtime_error("FSGrid aux communicator setup failed.");
+      {
+         // All FS ranks send their true comm3d rank and taskPosition data to dest
+         MPI_Request* request = new MPI_Request[(parentSize - 1) / size * 2 + 2];
+         for (int32_t i = 0; i < (parentSize - 1) / size; i++) {
+            int32_t dest =
+                (colorFs != MPI_UNDEFINED) ? parentRank + i * size + (parentSize - 1) % size + 1 : MPI_PROC_NULL;
+            if (dest >= parentSize)
+               dest = MPI_PROC_NULL;
+            MPI_Isend(&rank, 1, MPI_INT, dest, 9274, parent_comm, &request[2 * i]);
+            MPI_Isend(taskPosition.data(), 3, MPI_INT, dest, 9275, parent_comm, &request[2 * i + 1]);
          }
+
+         // All Aux ranks receive the true comm3d rank and taskPosition data from
+         // source and then compare that it matches their aux data
+         std::array<int32_t, 3> taskPositionRecv;
+         int32_t rankRecv;
+         int32_t source = (colorAux != MPI_UNDEFINED)
+                              ? parentRank - (parentRank - (parentSize % size)) / size * size - parentSize % size
+                              : MPI_PROC_NULL;
+
+         MPI_Irecv(&rankRecv, 1, MPI_INT, source, 9274, parent_comm, &request[(parentSize - 1) / size * 2]);
+         MPI_Irecv(taskPositionRecv.data(), 3, MPI_INT, source, 9275, parent_comm,
+                   &request[(parentSize - 1) / size * 2 + 1]);
+         MPI_Waitall((parentSize - 1) / size * 2 + 2, request, MPI_STATUS_IGNORE);
+
+         if (colorAux != MPI_UNDEFINED) {
+            if (rankRecv != rankAux || taskPositionRecv[0] != taskPositionAux[0] ||
+                taskPositionRecv[1] != taskPositionAux[1] || taskPositionRecv[2] != taskPositionAux[2]) {
+               std::cerr << "Rank: " << parentRank
+                         << ". Aux cartesian communicator 'comm3d_aux' does not match with 'comm3d' !" << std::endl;
+               throw std::runtime_error("FSGrid aux communicator setup failed.");
+            }
+         }
+         delete[] request;
       }
-      delete[] request;
 #endif // FSGRID_DEBUG
 
       // Set correct task position for non-FS ranks
