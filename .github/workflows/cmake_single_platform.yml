@@ -48,3 +48,10 @@ jobs:
         --test-dir ${{github.workspace}}/build/
         -C ${{env.BUILD_TYPE}}
         --output-on-failure
+        --output-log ${{github.workspace}}/build/github_test_log.log
+
+    - name: Archive test logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: ${{github.workspace}}/build/github_test_log.log
