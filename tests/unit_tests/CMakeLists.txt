@@ -7,6 +7,7 @@ set(testname ${PROJECT_NAME}_unit_tests)
 add_executable(
     ${testname}
     tools_tests.cpp
+    grid_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE
