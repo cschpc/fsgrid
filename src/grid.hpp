@@ -1022,8 +1022,62 @@ public:
             ss.copyfmt(defaultState);
          };
 
+         auto pushCombiner = [&ss](auto combiner) {
+            switch (combiner) {
+            case MPI_COMBINER_NAMED:
+               ss << "MPI_COMBINER_NAMED";
+               return;
+            case MPI_COMBINER_DUP:
+               ss << "MPI_COMBINER_DUP";
+               return;
+            case MPI_COMBINER_CONTIGUOUS:
+               ss << "MPI_COMBINER_CONTIGUOUS";
+               return;
+            case MPI_COMBINER_VECTOR:
+               ss << "MPI_COMBINER_VECTOR";
+               return;
+            case MPI_COMBINER_HVECTOR:
+               ss << "MPI_COMBINER_HVECTOR";
+               return;
+            case MPI_COMBINER_INDEXED:
+               ss << "MPI_COMBINER_INDEXED";
+               return;
+            case MPI_COMBINER_HINDEXED:
+               ss << "MPI_COMBINER_HINDEXED";
+               return;
+            case MPI_COMBINER_INDEXED_BLOCK:
+               ss << "MPI_COMBINER_INDEXED_BLOCK";
+               return;
+            case MPI_COMBINER_STRUCT:
+               ss << "MPI_COMBINER_STRUCT";
+               return;
+            case MPI_COMBINER_SUBARRAY:
+               ss << "MPI_COMBINER_SUBARRAY";
+               return;
+            case MPI_COMBINER_DARRAY:
+               ss << "MPI_COMBINER_DARRAY";
+               return;
+            case MPI_COMBINER_F90_REAL:
+               ss << "MPI_COMBINER_F90_REAL";
+               return;
+            case MPI_COMBINER_F90_COMPLEX:
+               ss << "MPI_COMBINER_F90_COMPLEX";
+               return;
+            case MPI_COMBINER_F90_INTEGER:
+               ss << "MPI_COMBINER_F90_INTEGER";
+               return;
+            case MPI_COMBINER_RESIZED:
+               ss << "MPI_COMBINER_RESIZED";
+               return;
+            default:
+               ss << "NO_SUCH_COMBINER";
+               return;
+            }
+         };
+
          ss << "{";
-         ss << newliner << "\tcombiner: " << combiner;
+         ss << newliner << "\tcombiner: ";
+         pushCombiner(combiner);
          ss << newliner << "\tintegers: [" << newliner << "\t\t";
          pushContainerValues(integers, false, 9);
          ss << newliner << "\t]";
@@ -1042,30 +1096,37 @@ public:
    };
 
    template <typename U> std::vector<MPITypeMetaData> getMPITypes(const U& typeVec) const {
-      std::vector<MPITypeMetaData> metadatas(typeVec.size());
-      for (size_t i = 0; i < typeVec.size(); i++) {
-         const auto mpiType = typeVec[i];
-         if (mpiType == MPI_DATATYPE_NULL || mpiType == MPI_BYTE) {
+      /*
+       *
+       * */
+      std::vector<MPITypeMetaData> metadatas;
+      metadatas.reserve(typeVec.size());
+      for (const auto& mpiType : typeVec) {
+         if (mpiType == MPI_DATATYPE_NULL) {
             continue;
          }
 
          int numIntegers = 0;
          int numAddresses = 0;
          int numDataTypes = 0;
-         FSGRID_MPI_CHECK(
-             MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &metadatas[i].combiner),
-             "Failed to get envelope for type ", mpiType);
+         int combiner = 0;
+         FSGRID_MPI_CHECK(MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &combiner),
+                          "Failed to get envelope for type ", mpiType);
 
-         metadatas[i].integers.resize(numIntegers);
-         metadatas[i].addresses.resize(numAddresses);
+         if (combiner == MPI_COMBINER_NAMED) {
+            continue;
+         }
+
+         metadatas.push_back(MPITypeMetaData{combiner, std::vector<int>(numIntegers),
+                                             std::vector<MPI_Aint>(numAddresses), std::vector<MPITypeMetaData>()});
          std::vector<MPI_Datatype> dataTypes(numDataTypes);
          FSGRID_MPI_CHECK(MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes,
-                                                metadatas[i].integers.data(), metadatas[i].addresses.data(),
+                                                metadatas.back().integers.data(), metadatas.back().addresses.data(),
                                                 dataTypes.data()),
                           "Failed to get type contents for type ", mpiType);
 
          if (numDataTypes != 0) {
-            metadatas[i].metaDatas = getMPITypes(dataTypes);
+            metadatas.back().metaDatas = getMPITypes(dataTypes);
          }
       }
 
