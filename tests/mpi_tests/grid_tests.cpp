@@ -66,9 +66,9 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference1) {
 
    const auto str = makeTestStringFromGrid(grid);
    if (rank == 0) {
-      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                        << refStr << "\nand generated string\n"
-                                        << str << "are not equal";
+      ASSERT_EQ(0, refStr.compare(str)) << "Generated string\n"
+                                        << str << "\nand ref string\n"
+                                        << refStr << "are not equal";
    } else {
       ASSERT_EQ(0, refStr.compare(str));
    }
@@ -87,9 +87,9 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference2) {
 
    const auto str = makeTestStringFromGrid(grid);
    if (rank == 0) {
-      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                        << refStr << "\nand generated string\n"
-                                        << str << "are not equal";
+      ASSERT_EQ(0, refStr.compare(str)) << "Generated string\n"
+                                        << str << "\nand ref string\n"
+                                        << refStr << "are not equal";
    } else {
       ASSERT_EQ(0, refStr.compare(str));
    }
@@ -108,9 +108,9 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference3) {
 
    const auto str = makeTestStringFromGrid(grid);
    if (rank == 0) {
-      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                        << refStr << "\nand generated string\n"
-                                        << str << "are not equal";
+      ASSERT_EQ(0, refStr.compare(str)) << "Generated string\n"
+                                        << str << "\nand ref string\n"
+                                        << refStr << "are not equal";
    } else {
       ASSERT_EQ(0, refStr.compare(str));
    }
@@ -126,9 +126,9 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference4) {
 
    const auto str = makeTestStringFromGrid(grid);
    if (rank == 0) {
-      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                        << refStr << "\nand generated string\n"
-                                        << str << "are not equal";
+      ASSERT_EQ(0, refStr.compare(str)) << "Generated string\n"
+                                        << str << "\nand ref string\n"
+                                        << refStr << "are not equal";
    } else {
       ASSERT_EQ(0, refStr.compare(str));
    }
@@ -144,9 +144,9 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference5) {
 
    const auto str = makeTestStringFromGrid(grid);
    if (rank == 0) {
-      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                        << refStr << "\nand generated string\n"
-                                        << str << "are not equal";
+      ASSERT_EQ(0, refStr.compare(str)) << "Generated string\n"
+                                        << str << "\nand ref string\n"
+                                        << refStr << "are not equal";
    } else {
       ASSERT_EQ(0, refStr.compare(str));
    }
