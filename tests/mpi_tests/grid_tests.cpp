@@ -56,6 +56,8 @@ template <typename T> void generateReferenceString(const T& grid, const std::str
 TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference1) {
    int size;
    MPI_Comm_size(MPI_COMM_WORLD, &size);
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
    const auto [grid, filename] =
        makeFsGridAndFilename({1024, 512, 64}, MPI_COMM_WORLD, {false, false, false}, {1, 1, size});
@@ -63,14 +65,20 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference1) {
    ASSERT_TRUE(success) << refStr;
 
    const auto str = makeTestStringFromGrid(grid);
-   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                     << refStr << "\nand generated string\n"
-                                     << str << "are not equal";
+   if (rank == 0) {
+      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                        << refStr << "\nand generated string\n"
+                                        << str << "are not equal";
+   } else {
+      ASSERT_EQ(0, refStr.compare(str));
+   }
 }
 
 TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference2) {
    int size;
    MPI_Comm_size(MPI_COMM_WORLD, &size);
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
    const auto [grid, filename] =
        makeFsGridAndFilename({512, 128, 1024}, MPI_COMM_WORLD, {true, false, true}, {1, size, 1});
@@ -78,14 +86,20 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference2) {
    ASSERT_TRUE(success) << refStr;
 
    const auto str = makeTestStringFromGrid(grid);
-   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                     << refStr << "\nand generated string\n"
-                                     << str << "are not equal";
+   if (rank == 0) {
+      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                        << refStr << "\nand generated string\n"
+                                        << str << "are not equal";
+   } else {
+      ASSERT_EQ(0, refStr.compare(str));
+   }
 }
 
 TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference3) {
    int size;
    MPI_Comm_size(MPI_COMM_WORLD, &size);
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
    const auto [grid, filename] =
        makeFsGridAndFilename({16, 512, 2048}, MPI_COMM_WORLD, {false, false, false}, {size, 1, 1});
@@ -93,29 +107,47 @@ TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference3) {
    ASSERT_TRUE(success) << refStr;
 
    const auto str = makeTestStringFromGrid(grid);
-   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                     << refStr << "\nand generated string\n"
-                                     << str << "are not equal";
+   if (rank == 0) {
+      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                        << refStr << "\nand generated string\n"
+                                        << str << "are not equal";
+   } else {
+      ASSERT_EQ(0, refStr.compare(str));
+   }
 }
 
 TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference4) {
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
    const auto [grid, filename] = makeFsGridAndFilename({16, 512, 2048}, MPI_COMM_WORLD, {false, false, false});
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
    const auto str = makeTestStringFromGrid(grid);
-   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                     << refStr << "\nand generated string\n"
-                                     << str << "are not equal";
+   if (rank == 0) {
+      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                        << refStr << "\nand generated string\n"
+                                        << str << "are not equal";
+   } else {
+      ASSERT_EQ(0, refStr.compare(str));
+   }
 }
 
 TEST(FsGridTest, compareConstructedFsGridDisplayStringToReference5) {
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
    const auto [grid, filename] = makeFsGridAndFilename({1024, 666, 71}, MPI_COMM_WORLD, {true, true, false});
    const auto [success, refStr] = readRefStr(filename);
    ASSERT_TRUE(success) << refStr;
 
    const auto str = makeTestStringFromGrid(grid);
-   ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
-                                     << refStr << "\nand generated string\n"
-                                     << str << "are not equal";
+   if (rank == 0) {
+      ASSERT_EQ(0, refStr.compare(str)) << "Reference string\n"
+                                        << refStr << "\nand generated string\n"
+                                        << str << "are not equal";
+   } else {
+      ASSERT_EQ(0, refStr.compare(str));
+   }
 }
