@@ -220,11 +220,9 @@ public:
              calculateNeighbourPosition(neighbourIndex, 2),
          };
 
-         const bool taskPositionWithinLimits = std::transform_reduce(
-             numTasksPerDim.cbegin(), numTasksPerDim.cend(), neighbourPosition.cbegin(),
-             true,                                  /* initial value to reducer */
-             [](bool a, bool b) { return a && b; }, /* reducer */
-             [](auto numTasks, auto taskPos) { return numTasks > taskPos && taskPos >= 0; } /* transformer */);
+         const bool taskPositionWithinLimits = numTasksPerDim[0] > neighbourPosition[0] && neighbourPosition[0] >= 0 &&
+                                               numTasksPerDim[1] > neighbourPosition[1] && neighbourPosition[1] >= 0 &&
+                                               numTasksPerDim[2] > neighbourPosition[2] && neighbourPosition[2] >= 0;
 
          if (taskPositionWithinLimits) {
             int32_t neighbourRank;
@@ -243,7 +241,6 @@ public:
       return ranks;
    }
 
-   // TODO: this is wrong: Fixme
    static std::vector<char> mapNeighbourRankToIndex(const std::array<int32_t, 27>& indexToRankMap, FsSize_t numRanks) {
       std::vector<char> indices(numRanks, MPI_PROC_NULL);
       std::for_each(indexToRankMap.cbegin(), indexToRankMap.cend(), [&indices, &numRanks, n = 0](auto rank) mutable {
@@ -276,14 +273,18 @@ public:
    static std::array<Task_t, 3> computeNumTasksPerDim(std::array<FsSize_t, 3> globalSize,
                                                       const std::array<Task_t, 3>& decomposition, int32_t numRanks,
                                                       int32_t stencilSize) {
-      // If decomposition isn't pre-defined, heuristically choose a good domain decomposition for our field size
-      if (std::all_of(decomposition.cbegin(), decomposition.cend(), [](Task_t i) { return i == 0; })) {
+      const bool allZero = decomposition[0] == 0 && decomposition[1] == 0 && decomposition[2] == 0;
+      if (allZero) {
          return FsGridTools::computeDomainDecomposition(globalSize, numRanks, stencilSize);
-      } else if (decomposition[0] * decomposition[1] * decomposition[2] != numRanks) {
+      }
+
+      const bool incorrectDistribution = decomposition[0] * decomposition[1] * decomposition[2] != numRanks;
+      if (incorrectDistribution) {
          std::cerr << "Given decomposition (" << decomposition[0] << " " << decomposition[1] << " " << decomposition[2]
                    << ") does not distribute to the number of tasks given" << std::endl;
          throw std::runtime_error("Given decomposition does not distribute to the number of tasks given");
       }
+
       return decomposition;
    }
 
@@ -293,19 +294,22 @@ public:
    }
 
    // Assumes x, y and z to belong to set [-1, 0, 1]
+   // returns a value in (inclusive) range [0, 26]
    static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
 
-   // These assume linear to be in (inclusive) range [0, 26]
+   // These assume i to be in (inclusive) range [0, 26]
+   // returns a value from the set [-1, 0, 1]
    static int32_t linearToX(int32_t i) { return i / 9 - 1; }
    static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
    static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
 
    static bool localSizeTooSmall(std::array<FsSize_t, 3> globalSize, std::array<FsIndex_t, 3> localSize,
                                  int32_t stencilSize) {
-      const bool anyLocalIsZero = std::any_of(localSize.cbegin(), localSize.cend(), [](auto ls) { return ls == 0; });
-      const bool stencilSizeBoundedByGlobalAndLocalSizes = std::transform_reduce(
-          globalSize.cbegin(), globalSize.cend(), localSize.cbegin(), false, [](bool a, bool b) { return a || b; },
-          [&stencilSize](auto gs, auto ls) { return gs > stencilSize && stencilSize > ls; });
+      const bool anyLocalIsZero = localSize[0] == 0 || localSize[1] == 0 || localSize[2] == 0;
+      const bool stencilSizeBoundedByGlobalAndLocalSizes =
+          (globalSize[0] > stencilSize && stencilSize > localSize[0]) ||
+          (globalSize[1] > stencilSize && stencilSize > localSize[1]) ||
+          (globalSize[2] > stencilSize && stencilSize > localSize[2]);
 
       return anyLocalIsZero || stencilSizeBoundedByGlobalAndLocalSizes;
    }
