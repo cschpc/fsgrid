@@ -248,8 +248,9 @@ public:
       std::vector<char> indices(numRanks, MPI_PROC_NULL);
       std::for_each(indexToRankMap.cbegin(), indexToRankMap.cend(), [&indices, &numRanks, n = 0](auto rank) mutable {
          if (numRanks > rank && rank >= 0) {
-            indices[rank] = n++;
+            indices[rank] = n;
          }
+         n++;
       });
       return indices;
    }
