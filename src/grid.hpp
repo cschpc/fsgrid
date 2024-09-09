@@ -64,8 +64,7 @@ public:
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
        : globalSize(globalSize), numTasksPerDim(computeNumTasksPerDim(globalSize, decomposition,
                                                                       getFSCommSize(getCommSize(parentComm)), stencil)),
-         periodic(periodic),
-         neighbourRankToIndex(std::vector<char>(getFSCommSize(getCommSize(parentComm)), MPI_PROC_NULL)) {
+         periodic(periodic) {
       const int32_t parentRank = getCommRank(parentComm);
       const int32_t parentCommSize = getCommSize(parentComm);
       const int numRanks = getFSCommSize(parentCommSize);
