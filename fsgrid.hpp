@@ -20,12 +20,15 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <array>
+#include <memory>
 #include <vector>
 #include <mpi.h>
 #include <iostream>
 #include <limits>
 #include <stdint.h>
 #include <cassert>
+#include <cstring>
+#include <stdlib.h>
 #include <stdio.h>
 #include <iomanip>
 #include <algorithm>
@@ -483,7 +486,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
 
          // Allocate local storage array
-         size_t totalStorageSize=1;
+         totalStorageSize=1;
          for(int i=0; i<3; i++) {
             if(globalSize[i] <= 1) {
                // Collapsed dimension => only one cell thick
@@ -494,7 +497,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
             }
             totalStorageSize *= storageSize[i];
          }
-         data.resize(totalStorageSize);
+         data.reset(static_cast<T*>(malloc(totalStorageSize * sizeof(T))), free);
+         std::memset(data.get(), 0, totalStorageSize * sizeof(T));
+
          coupling->setCouplingSize(totalStorageSize);
 
          MPI_Datatype mpiTypeT;
@@ -606,12 +611,12 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
       }
 
-      std::vector<T>& getData(){
-         return this->data;
+      std::shared_ptr<T> getData(){
+         return data;
       }
 
       void copyData(FsGrid &other){
-         this->data = other.getData(); // Copy assignment
+         std::memcpy(data.get(), other.getData().get(), totalStorageSize * sizeof(T));
       }
 
       /*! Finalize instead of destructor, as the MPI calls fail after the main program called MPI_Finalize().
@@ -945,7 +950,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
                   int receiveId = (1 - x) * 9 + ( 1 - y) * 3 + ( 1 - z);
                   if(neighbour[receiveId] != MPI_PROC_NULL &&
                      neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                     MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d, &(receiveRequests[shiftId]));
+                     MPI_Irecv(data.get(), 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d, &(receiveRequests[shiftId]));
                   }
                }
             }
@@ -958,7 +963,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
                   int sendId = shiftId;
                   if(neighbour[sendId] != MPI_PROC_NULL &&
                      neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                     MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d, &(sendRequests[shiftId]));
+                     MPI_Isend(data.get(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d, &(sendRequests[shiftId]));
                   }
                }
             }
@@ -1117,22 +1122,22 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
        * \param z z-Coordinate, in cells
        * \return A reference to cell data in the given cell
        */
-      T* get(int x, int y, int z) {
+      T* get(int x, int y, int z) const {
          auto index = calculateIndex(x, y, z);
          if (index < 0) {
             return NULL;
          }
-         return &data[index];
+         return get(index);
       }
 
-      T* get(LocalID id) {
-         if(id < 0 || (unsigned int)id > data.size()) {
+      T* get(LocalID id) const {
+         if(id < 0 || (unsigned int)id > totalStorageSize) {
             std::cerr << "Out-of-bounds access in FsGrid::get!" << std::endl
-               << "(LocalID = " << id << ", but storage space is " << data.size()
+               << "(LocalID = " << id << ", but storage space is " << totalStorageSize
                << ". Expect weirdness." << std::endl;
             return NULL;
          }
-         return &data[id];
+         return data.get() + id;
       }
 
       /*! Physical grid spacing and physical coordinate space start.
@@ -1232,6 +1237,27 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          return ntasksPerDim;
       }
 
+      /* Parallel for interface function with shared memory buffer */
+      template <typename Lambda>
+      void parallel_for(Lambda loop_body) {
+         // Using raw pointer for gridDims;
+         // Workaround intel compiler bug in collapsed openmp loops
+         // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+         const FsIndex_t* gridDims = &localSize[0];
+
+         #pragma omp parallel
+         {
+            #pragma omp for collapse(2)
+            for (FsIndex_t k=0; k<gridDims[2]; k++) {
+               for (FsIndex_t j=0; j<gridDims[1]; j++) {
+                  for (FsIndex_t i=0; i<gridDims[0]; i++) {
+                     loop_body(i, j, k);
+                  }
+               }
+            }
+         }
+      }
+
    private:
       //! MPI Cartesian communicator used in this grid
       MPI_Comm comm1d = MPI_COMM_NULL;
@@ -1264,8 +1290,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       std::array<MPI_Datatype, 27> neighbourSendType; //!< Datatype for sending data
       std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
 
-
-
       //! Actual storage of field data
-      std::vector<T> data;
+      std::shared_ptr<T> data;
+      size_t totalStorageSize;
 };
