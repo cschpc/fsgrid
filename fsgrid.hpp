@@ -682,6 +682,10 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          return data;
       }
 
+      ~FsGrid() {
+        printf("free, count=%ld\n", data.use_count());
+      }
+
       std::shared_ptr<T> getData(){
          return data;
       }
