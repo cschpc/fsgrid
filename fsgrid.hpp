@@ -38,8 +38,31 @@
 #define FS_MASTER_RANK 0
 #endif
 
-
 typedef int32_t FsIndex_t;
+typedef int64_t LocalID;
+
+struct FsStencil {
+  LocalID center;
+  LocalID xLeft;
+  LocalID xRght;
+  LocalID yLeft;
+  LocalID yRght;
+  LocalID zLeft;
+  LocalID zRght;
+  LocalID xyBotLeft;
+  LocalID xyBotRght;
+  LocalID xyTopLeft;
+  LocalID xyTopRght;
+  LocalID xzBotLeft;
+  LocalID xzBotRght;
+  LocalID xzTopLeft;
+  LocalID xzTopRght;
+  LocalID yzBotLeft;
+  LocalID yzBotRght;
+  LocalID yzTopLeft;
+  LocalID yzTopRght;
+};
+
 
 template<typename T>
 void swapArray(std::array<T, 3>& array) {
@@ -1064,6 +1087,18 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
        * \param x x-Coordinate, in cells
        * \param y y-Coordinate, in cells
        * \param z z-Coordinate, in cells
+       * \param oob value returned if index is out of bounds
+       * \return index
+       */
+      LocalID calculateIndex(int x, int y, int z, LocalID oob) const {
+         LocalID idx = calculateIndex(x, y, z);
+         return idx < 0 ? oob : idx;
+      }
+
+      /*! Get linear index
+       * \param x x-Coordinate, in cells
+       * \param y y-Coordinate, in cells
+       * \param z z-Coordinate, in cells
        * \return index
        */
       LocalID calculateIndex(int x, int y, int z) const {
@@ -1305,7 +1340,33 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
             for (FsIndex_t k=0; k<gridDims[2]; k++) {
                for (FsIndex_t j=0; j<gridDims[1]; j++) {
                   for (FsIndex_t i=0; i<gridDims[0]; i++) {
-                     loop_body(i, j, k);
+
+                     FsStencil s;
+                     s.center = calculateIndex(i, j, k);
+
+                     s.xLeft = calculateIndex(i-1, j, k, s.center);
+                     s.xRght = calculateIndex(i+1, j, k, s.center);
+                     s.yLeft = calculateIndex(i, j-1, k, s.center);
+                     s.yRght = calculateIndex(i, j+1, k, s.center);
+                     s.zLeft = calculateIndex(i, j, k-1, s.center);
+                     s.zRght = calculateIndex(i, j, k+1, s.center);
+
+                     s.xyBotLeft = calculateIndex(i-1, j-1, k);
+                     s.xyBotRght = calculateIndex(i+1, j-1, k);
+                     s.xyTopLeft = calculateIndex(i-1, j+1, k);
+                     s.xyTopRght = calculateIndex(i+1, j+1, k);
+                     s.xzBotLeft = calculateIndex(i-1, j, k-1);
+                     s.xzBotRght = calculateIndex(i+1, j, k-1);
+                     s.xzTopLeft = calculateIndex(i-1, j, k+1);
+                     s.xzTopRght = calculateIndex(i+1, j, k+1);
+                     s.yzBotLeft = calculateIndex(i, j-1, k-1);
+                     s.yzBotRght = calculateIndex(i, j+1, k-1);
+                     s.yzTopLeft = calculateIndex(i, j-1, k+1);
+                     s.yzTopRght = calculateIndex(i, j+1, k+1);
+
+                     auto sysBoundaryFlag  = get(s.center)->sysBoundaryFlag;
+                     auto sysBoundaryLayer = get(s.center)->sysBoundaryLayer;
+                     loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
                   }
                }
             }
