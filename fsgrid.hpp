@@ -20,6 +20,7 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <array>
+#include <tuple>
 #include <memory>
 #include <vector>
 #include <mpi.h>
@@ -48,15 +49,18 @@ void swapArray(std::array<T, 3>& array) {
 }
 
 
-template <typename T, int stencil>
-void create_mpi_data_types(
+template <int stencil>
+std::tuple<std::array<MPI_Datatype, 27>, std::array<MPI_Datatype, 27>>
+create_mpi_data_types(
+      const size_t bytes,
       const std::array<FsIndex_t, 3>& storageSize,
-      const std::array<FsIndex_t, 3>& localSize,
-      std::array<MPI_Datatype, 27>& neighbourSendType,
-      std::array<MPI_Datatype, 27>& neighbourReceiveType)
+      const std::array<FsIndex_t, 3>& localSize)
 {
+   std::array<MPI_Datatype, 27> neighbourSendType;
+   std::array<MPI_Datatype, 27> neighbourReceiveType;
+
    MPI_Datatype mpiTypeT;
-   MPI_Type_contiguous(sizeof(T), MPI_BYTE, &mpiTypeT);
+   MPI_Type_contiguous(bytes, MPI_BYTE, &mpiTypeT);
    for(int x=-1; x<=1;x++) {
       for(int y=-1; y<=1;y++) {
          for(int z=-1; z<=1; z++) {
@@ -160,6 +164,8 @@ void create_mpi_data_types(
       if(neighbourSendType[i] != MPI_DATATYPE_NULL)
          MPI_Type_commit(&(neighbourSendType[i]));
    }
+
+   return {neighbourSendType, neighbourReceiveType};
 }
 
 
@@ -622,7 +628,25 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
          coupling->setCouplingSize(totalStorageSize);
 
-         create_mpi_data_types<T, stencil>(storageSize, localSize, neighbourSendType, neighbourReceiveType);
+         // Add corresponding MPI datatypes for ghost cell update of this data type
+         add_mpi_data_types(sizeof(T));
+      }
+
+      void add_mpi_data_types(size_t bytes) {
+         if (neighbourMPITypes.find(bytes) == neighbourMPITypes.end()) {
+            auto neighbourMPIType = create_mpi_data_types<stencil>(bytes, storageSize, localSize);
+            neighbourMPITypes[bytes] = neighbourMPIType;
+         }
+      }
+
+      template <typename DataT>
+      auto allocate_data(){
+         auto deleter = [](void* ptr) { free(ptr); };
+         std::unique_ptr<DataT, decltype(deleter)> data(static_cast<DataT*>(malloc(totalStorageSize * sizeof(DataT))), deleter);
+
+         // Add corresponding MPI datatypes for ghost cell update of this data type
+         add_mpi_data_types(sizeof(DataT));
+         return data;
       }
 
       std::shared_ptr<T> getData(){
@@ -639,12 +663,20 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       void finalize() {
          // If not a non-FS process
          if(rank != -1){
-            for(int i=0;i<27;i++){
-               if(neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-                  MPI_Type_free(&(neighbourReceiveType[i]));
-               if(neighbourSendType[i] != MPI_DATATYPE_NULL)
-                  MPI_Type_free(&(neighbourSendType[i]));
+            for (auto& it : neighbourMPITypes) {
+               auto [sendTypeArray, recvTypeArray] = it.second;
+               for (auto& type : sendTypeArray) {
+                  if (type != MPI_DATATYPE_NULL) {
+                     MPI_Type_free(&type);
+                  }
+               }
+               for (auto& type : recvTypeArray) {
+                  if (type != MPI_DATATYPE_NULL) {
+                     MPI_Type_free(&type);
+                  }
+               }
             }
+            neighbourMPITypes.clear();
          }
 
          if(comm3d != MPI_COMM_NULL)
@@ -944,15 +976,15 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       /*! Perform ghost cell communication.
        */
       void updateGhostCells() {
-         updateGhostCells(data.get(), neighbourSendType, neighbourReceiveType);
+         updateGhostCells(data.get());
       }
 
-      void updateGhostCells(
-            void* data,
-            const std::array<MPI_Datatype, 27>& neighbourSendType,
-            const std::array<MPI_Datatype, 27>& neighbourReceiveType) const {
+      template <typename DataT>
+      void updateGhostCells(DataT* data) const {
 
          if(rank == -1) return;
+
+         auto [neighbourSendType, neighbourReceiveType] = neighbourMPITypes.at(sizeof(DataT));
 
          //TODO, faster with simultaneous isends& ireceives?
          std::array<MPI_Request, 27> receiveRequests;
@@ -992,9 +1024,6 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE);         
          MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE);
       }
-   
-   
-   
 
       /*! Get the size of the local domain handled by this grid.
        */
@@ -1283,9 +1312,6 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
       }
 
-      std::array<MPI_Datatype, 27> neighbourSendType; //!< Datatype for sending data
-      std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
-
    private:
       //! MPI Cartesian communicator used in this grid
       MPI_Comm comm1d = MPI_COMM_NULL;
@@ -1315,6 +1341,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
       FsGridCouplingInformation* coupling; // Information required to couple to external grids
 
+      std::unordered_map<size_t, std::tuple<std::array<MPI_Datatype, 27>, std::array<MPI_Datatype, 27>>> neighbourMPITypes; //!< Datatypes for sending and receiving data
 
       //! Actual storage of field data
       std::shared_ptr<T> data;
