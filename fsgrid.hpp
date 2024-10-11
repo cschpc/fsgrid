@@ -37,6 +37,132 @@
 #define FS_MASTER_RANK 0
 #endif
 
+
+typedef int32_t FsIndex_t;
+
+template<typename T>
+void swapArray(std::array<T, 3>& array) {
+   T a = array[0];
+   array[0] = array[2];
+   array[2] = a;
+}
+
+
+template <typename T, int stencil>
+void create_mpi_data_types(
+      const std::array<FsIndex_t, 3>& storageSize,
+      const std::array<FsIndex_t, 3>& localSize,
+      std::array<MPI_Datatype, 27>& neighbourSendType,
+      std::array<MPI_Datatype, 27>& neighbourReceiveType)
+{
+   MPI_Datatype mpiTypeT;
+   MPI_Type_contiguous(sizeof(T), MPI_BYTE, &mpiTypeT);
+   for(int x=-1; x<=1;x++) {
+      for(int y=-1; y<=1;y++) {
+         for(int z=-1; z<=1; z++) {
+            neighbourSendType[(x+1) * 9 + (y + 1) * 3 + (z + 1)] = MPI_DATATYPE_NULL;
+            neighbourReceiveType[(x+1) * 9 + (y + 1) * 3 + (z + 1)] = MPI_DATATYPE_NULL;
+         }
+      }
+   }
+
+   // Compute send and receive datatypes
+
+   //loop through the shifts in the different directions
+   for(int x=-1; x<=1;x++) {
+      for(int y=-1; y<=1;y++) {
+         for(int z=-1; z<=1; z++) {
+            std::array<int,3> subarraySize;
+            std::array<int,3> subarrayStart;
+            const int shiftId = (x+1) * 9 + (y + 1) * 3 + (z + 1);
+
+            if((storageSize[0] == 1 && x!= 0 ) ||
+               (storageSize[1] == 1 && y!= 0 ) ||
+               (storageSize[2] == 1 && z!= 0 ) ||
+               (x == 0 && y == 0 && z == 0)){
+               //skip flat dimension for 2 or 1D simulations, and self
+               neighbourSendType[shiftId] = MPI_DATATYPE_NULL;
+               neighbourReceiveType[shiftId] = MPI_DATATYPE_NULL;
+               continue;
+            }
+
+            subarraySize[0] = (x == 0) ? localSize[0] : stencil;
+            subarraySize[1] = (y == 0) ? localSize[1] : stencil;
+            subarraySize[2] = (z == 0) ? localSize[2] : stencil;
+
+            if( x == 0 || x == -1 )
+               subarrayStart[0] = stencil;
+            else if (x == 1)
+               subarrayStart[0] = storageSize[0] - 2 * stencil;
+            if( y == 0 || y == -1 )
+               subarrayStart[1] = stencil;
+            else if (y == 1)
+               subarrayStart[1] = storageSize[1] - 2 * stencil;
+            if( z == 0 || z == -1 )
+               subarrayStart[2] = stencil;
+            else if (z == 1)
+               subarrayStart[2] = storageSize[2] - 2 * stencil;
+
+            for(int i = 0;i < 3; i++)
+               if(storageSize[i] == 1)
+                  subarrayStart[i] = 0;
+
+            std::array<int,3> swappedStorageSize = {(int)storageSize[0],(int)storageSize[1],(int)storageSize[2]};
+            swapArray(swappedStorageSize);
+            swapArray(subarraySize);
+            swapArray(subarrayStart);
+            MPI_Type_create_subarray(3,
+                                     swappedStorageSize.data(),
+                                     subarraySize.data(),
+                                     subarrayStart.data(),
+                                     MPI_ORDER_C,
+                                     mpiTypeT,
+                                     &(neighbourSendType[shiftId]) );
+
+            if(x == 1 )
+               subarrayStart[0] = 0;
+            else if (x == 0)
+               subarrayStart[0] = stencil;
+            else if (x == -1)
+               subarrayStart[0] = storageSize[0] -  stencil;
+            if(y == 1 )
+               subarrayStart[1] = 0;
+            else if (y == 0)
+               subarrayStart[1] = stencil;
+            else if (y == -1)
+               subarrayStart[1] = storageSize[1] -  stencil;
+            if(z == 1 )
+               subarrayStart[2] = 0;
+            else if (z == 0)
+               subarrayStart[2] = stencil;
+            else if (z == -1)
+               subarrayStart[2] = storageSize[2] -  stencil;
+            for(int i = 0;i < 3; i++)
+               if(storageSize[i] == 1)
+                  subarrayStart[i] = 0;
+
+            swapArray(subarrayStart);
+            MPI_Type_create_subarray(3,
+                                     swappedStorageSize.data(),
+                                     subarraySize.data(),
+                                     subarrayStart.data(),
+                                     MPI_ORDER_C,
+                                     mpiTypeT,
+                                     &(neighbourReceiveType[shiftId]));
+
+         }
+      }
+   }
+
+   for(int i=0;i<27;i++){
+      if(neighbourReceiveType[i] != MPI_DATATYPE_NULL)
+         MPI_Type_commit(&(neighbourReceiveType[i]));
+      if(neighbourSendType[i] != MPI_DATATYPE_NULL)
+         MPI_Type_commit(&(neighbourSendType[i]));
+   }
+}
+
+
 struct FsGridTools{
 
    typedef uint32_t FsSize_t; // Size type for global array indices
@@ -227,12 +353,6 @@ struct FsGridCouplingInformation {
  * \param stencil ghost cell width of this grid
  */
 template <typename T, int stencil> class FsGrid : public FsGridTools{
-
-   template<typename ArrayT> void swapArray(std::array<ArrayT, 3>& array) {
-      ArrayT a = array[0];
-      array[0] = array[2];
-      array[2] = a;
-   }
 
    public:
 
@@ -502,113 +622,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
          coupling->setCouplingSize(totalStorageSize);
 
-         MPI_Datatype mpiTypeT;
-         MPI_Type_contiguous(sizeof(T), MPI_BYTE, &mpiTypeT);
-         for(int x=-1; x<=1;x++) {
-            for(int y=-1; y<=1;y++) {
-               for(int z=-1; z<=1; z++) {
-                  neighbourSendType[(x+1) * 9 + (y + 1) * 3 + (z + 1)] = MPI_DATATYPE_NULL;
-                  neighbourReceiveType[(x+1) * 9 + (y + 1) * 3 + (z + 1)] = MPI_DATATYPE_NULL;
-               }
-            }
-         }
-         
-         // Compute send and receive datatypes
-
-         //loop through the shifts in the different directions
-         for(int x=-1; x<=1;x++) {
-            for(int y=-1; y<=1;y++) {
-               for(int z=-1; z<=1; z++) {
-                  std::array<int,3> subarraySize;
-                  std::array<int,3> subarrayStart;                  
-                  const int shiftId = (x+1) * 9 + (y + 1) * 3 + (z + 1);
-                  
-                  if((storageSize[0] == 1 && x!= 0 ) ||
-                     (storageSize[1] == 1 && y!= 0 ) ||
-                     (storageSize[2] == 1 && z!= 0 ) ||
-                     (x == 0 && y == 0 && z == 0)){
-                     //skip flat dimension for 2 or 1D simulations, and self
-                     neighbourSendType[shiftId] = MPI_DATATYPE_NULL;
-                     neighbourReceiveType[shiftId] = MPI_DATATYPE_NULL;
-                     continue;
-                  }
-
-                  subarraySize[0] = (x == 0) ? localSize[0] : stencil;
-                  subarraySize[1] = (y == 0) ? localSize[1] : stencil;
-                  subarraySize[2] = (z == 0) ? localSize[2] : stencil;
-
-                  if( x == 0 || x == -1 )
-                     subarrayStart[0] = stencil;
-                  else if (x == 1)
-                     subarrayStart[0] = storageSize[0] - 2 * stencil;
-                  if( y == 0 || y == -1 )
-                     subarrayStart[1] = stencil;
-                  else if (y == 1)
-                     subarrayStart[1] = storageSize[1] - 2 * stencil;
-                  if( z == 0 || z == -1 )
-                     subarrayStart[2] = stencil;
-                  else if (z == 1)
-                     subarrayStart[2] = storageSize[2] - 2 * stencil;
-                  
-                  for(int i = 0;i < 3; i++)
-                     if(storageSize[i] == 1) 
-                        subarrayStart[i] = 0;
-
-                  std::array<int,3> swappedStorageSize = {(int)storageSize[0],(int)storageSize[1],(int)storageSize[2]};
-                  swapArray(swappedStorageSize);
-                  swapArray(subarraySize);
-                  swapArray(subarrayStart);                  
-                  MPI_Type_create_subarray(3,
-                                           swappedStorageSize.data(),
-                                           subarraySize.data(),
-                                           subarrayStart.data(),
-                                           MPI_ORDER_C,
-                                           mpiTypeT,
-                                           &(neighbourSendType[shiftId]) );
-                  
-                  if(x == 1 )
-                     subarrayStart[0] = 0;
-                  else if (x == 0)
-                     subarrayStart[0] = stencil;
-                  else if (x == -1)
-                     subarrayStart[0] = storageSize[0] -  stencil;
-                  if(y == 1 )
-                     subarrayStart[1] = 0;
-                  else if (y == 0)
-                     subarrayStart[1] = stencil;
-                  else if (y == -1)
-                     subarrayStart[1] = storageSize[1] -  stencil;
-                  if(z == 1 )
-                     subarrayStart[2] = 0;
-                  else if (z == 0)
-                     subarrayStart[2] = stencil;
-                  else if (z == -1)
-                     subarrayStart[2] = storageSize[2] -  stencil;
-                  for(int i = 0;i < 3; i++)
-                     if(storageSize[i] == 1) 
-                        subarrayStart[i] = 0;
-                  
-                  swapArray(subarrayStart);                  
-                  MPI_Type_create_subarray(3,
-                                           swappedStorageSize.data(),
-                                           subarraySize.data(),
-                                           subarrayStart.data(),
-                                           MPI_ORDER_C,
-                                           mpiTypeT,
-                                           &(neighbourReceiveType[shiftId]));
-                  
-               }
-            }
-         }
-         
-         for(int i=0;i<27;i++){
-            if(neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-               MPI_Type_commit(&(neighbourReceiveType[i]));
-            if(neighbourSendType[i] != MPI_DATATYPE_NULL)
-               MPI_Type_commit(&(neighbourSendType[i]));
-         }
-
-
+         create_mpi_data_types<T, stencil>(storageSize, localSize, neighbourSendType, neighbourReceiveType);
       }
 
       std::shared_ptr<T> getData(){
@@ -930,6 +944,13 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       /*! Perform ghost cell communication.
        */
       void updateGhostCells() {
+         updateGhostCells(data.get(), neighbourSendType, neighbourReceiveType);
+      }
+
+      void updateGhostCells(
+            void* data,
+            const std::array<MPI_Datatype, 27>& neighbourSendType,
+            const std::array<MPI_Datatype, 27>& neighbourReceiveType) const {
 
          if(rank == -1) return;
 
@@ -950,7 +971,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
                   int receiveId = (1 - x) * 9 + ( 1 - y) * 3 + ( 1 - z);
                   if(neighbour[receiveId] != MPI_PROC_NULL &&
                      neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                     MPI_Irecv(data.get(), 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d, &(receiveRequests[shiftId]));
+                     MPI_Irecv(data, 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d, &(receiveRequests[shiftId]));
                   }
                }
             }
@@ -963,7 +984,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
                   int sendId = shiftId;
                   if(neighbour[sendId] != MPI_PROC_NULL &&
                      neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                     MPI_Isend(data.get(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d, &(sendRequests[shiftId]));
+                     MPI_Isend(data, 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d, &(sendRequests[shiftId]));
                   }
                }
             }
@@ -1140,6 +1161,10 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          return data.get() + id;
       }
 
+      T* get() const {
+         return data.get();
+      }
+
       /*! Physical grid spacing and physical coordinate space start.
        * TODO: Should this be private and have accesor-functions?
        */
@@ -1258,6 +1283,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
       }
 
+      std::array<MPI_Datatype, 27> neighbourSendType; //!< Datatype for sending data
+      std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
+
    private:
       //! MPI Cartesian communicator used in this grid
       MPI_Comm comm1d = MPI_COMM_NULL;
@@ -1287,8 +1315,6 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
       FsGridCouplingInformation* coupling; // Information required to couple to external grids
 
-      std::array<MPI_Datatype, 27> neighbourSendType; //!< Datatype for sending data
-      std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
 
       //! Actual storage of field data
       std::shared_ptr<T> data;
