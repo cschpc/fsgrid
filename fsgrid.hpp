@@ -41,7 +41,7 @@
 typedef int32_t FsIndex_t;
 typedef int64_t LocalID;
 
-struct FsStencil {
+struct FsStencilAll {
   LocalID center;
   LocalID xLeft;
   LocalID xRght;
@@ -60,6 +60,16 @@ struct FsStencil {
   LocalID yzBotLeft;
   LocalID yzBotRght;
   LocalID yzTopLeft;
+  LocalID yzTopRght;
+};
+
+struct FsStencilRght {
+  LocalID center;
+  LocalID xRght;
+  LocalID yRght;
+  LocalID zRght;
+  LocalID xyTopRght;
+  LocalID xzTopRght;
   LocalID yzTopRght;
 };
 
@@ -1327,7 +1337,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
       /* Parallel for interface function with shared memory buffer */
-      template <typename Lambda>
+      template <typename FsStencil, typename Lambda>
       void parallel_for(Lambda loop_body) {
          // Using raw pointer for gridDims;
          // Workaround intel compiler bug in collapsed openmp loops
@@ -1344,25 +1354,35 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
                      FsStencil s;
                      s.center = calculateIndex(i, j, k);
 
-                     s.xLeft = calculateIndex(i-1, j, k, s.center);
-                     s.xRght = calculateIndex(i+1, j, k, s.center);
-                     s.yLeft = calculateIndex(i, j-1, k, s.center);
-                     s.yRght = calculateIndex(i, j+1, k, s.center);
-                     s.zLeft = calculateIndex(i, j, k-1, s.center);
-                     s.zRght = calculateIndex(i, j, k+1, s.center);
+                     if constexpr (std::is_same_v<FsStencil, FsStencilAll>) {
+                        s.xLeft = calculateIndex(i-1, j, k, s.center);
+                        s.xRght = calculateIndex(i+1, j, k, s.center);
+                        s.yLeft = calculateIndex(i, j-1, k, s.center);
+                        s.yRght = calculateIndex(i, j+1, k, s.center);
+                        s.zLeft = calculateIndex(i, j, k-1, s.center);
+                        s.zRght = calculateIndex(i, j, k+1, s.center);
 
-                     s.xyBotLeft = calculateIndex(i-1, j-1, k);
-                     s.xyBotRght = calculateIndex(i+1, j-1, k);
-                     s.xyTopLeft = calculateIndex(i-1, j+1, k);
-                     s.xyTopRght = calculateIndex(i+1, j+1, k);
-                     s.xzBotLeft = calculateIndex(i-1, j, k-1);
-                     s.xzBotRght = calculateIndex(i+1, j, k-1);
-                     s.xzTopLeft = calculateIndex(i-1, j, k+1);
-                     s.xzTopRght = calculateIndex(i+1, j, k+1);
-                     s.yzBotLeft = calculateIndex(i, j-1, k-1);
-                     s.yzBotRght = calculateIndex(i, j+1, k-1);
-                     s.yzTopLeft = calculateIndex(i, j-1, k+1);
-                     s.yzTopRght = calculateIndex(i, j+1, k+1);
+                        s.xyBotLeft = calculateIndex(i-1, j-1, k);
+                        s.xyBotRght = calculateIndex(i+1, j-1, k);
+                        s.xyTopLeft = calculateIndex(i-1, j+1, k);
+                        s.xyTopRght = calculateIndex(i+1, j+1, k);
+                        s.xzBotLeft = calculateIndex(i-1, j, k-1);
+                        s.xzBotRght = calculateIndex(i+1, j, k-1);
+                        s.xzTopLeft = calculateIndex(i-1, j, k+1);
+                        s.xzTopRght = calculateIndex(i+1, j, k+1);
+                        s.yzBotLeft = calculateIndex(i, j-1, k-1);
+                        s.yzBotRght = calculateIndex(i, j+1, k-1);
+                        s.yzTopLeft = calculateIndex(i, j-1, k+1);
+                        s.yzTopRght = calculateIndex(i, j+1, k+1);
+                     } else if constexpr (std::is_same_v<FsStencil, FsStencilRght>) {
+                        s.xRght = calculateIndex(i+1, j, k, s.center);
+                        s.yRght = calculateIndex(i, j+1, k, s.center);
+                        s.zRght = calculateIndex(i, j, k+1, s.center);
+
+                        s.xyTopRght = calculateIndex(i+1, j+1, k);
+                        s.xzTopRght = calculateIndex(i+1, j, k+1);
+                        s.yzTopRght = calculateIndex(i, j+1, k+1);
+                     }
 
                      auto sysBoundaryFlag  = get(s.center)->sysBoundaryFlag;
                      auto sysBoundaryLayer = get(s.center)->sysBoundaryLayer;
