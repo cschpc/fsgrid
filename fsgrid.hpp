@@ -666,7 +666,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
       void add_mpi_data_types(size_t bytes) {
+         printf("add_mpi_data_types %ld\n", bytes);
          if (neighbourMPITypes.find(bytes) == neighbourMPITypes.end()) {
+            printf("do add\n");
             auto neighbourMPIType = create_mpi_data_types<stencil>(bytes, storageSize, localSize);
             neighbourMPITypes[bytes] = neighbourMPIType;
          }
@@ -674,7 +676,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
       template <typename DataT>
       auto allocate_data(){
-         auto deleter = [](void* ptr) { free(ptr); };
+         auto deleter = [](void* ptr) { free(ptr); printf("free unique_ptr\n"); };
          std::unique_ptr<DataT, decltype(deleter)> data(static_cast<DataT*>(malloc(totalStorageSize * sizeof(DataT))), deleter);
 
          // Add corresponding MPI datatypes for ghost cell update of this data type
