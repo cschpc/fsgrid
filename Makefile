@@ -27,4 +27,4 @@ clean:
 	rm -rf $(build_dir_prefix) $(project_name)
 
 test: all
-	ctest --test-dir $(build_dir_prefix)/Release
+	ctest --test-dir $(build_dir_prefix)/Release --output-on-failure
