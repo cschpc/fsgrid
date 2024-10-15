@@ -27,6 +27,7 @@
 #include <mpi.h>
 #include <stdexcept>
 #include <stdint.h>
+#include <vector>
 
 #define FSGRID_MPI_CHECK(status, ...) FsGridTools::writeToCerrAndThrowIfFailed(status != MPI_SUCCESS, __VA_ARGS__)
 
@@ -297,4 +298,131 @@ static std::array<FsIndex_t, 3> calculateStorageSize(const std::array<FsSize_t, 
        globalSize[2] <= 1 ? 1 : localSize[2] + stencilSize * 2,
    };
 }
+
+// Assumes x, y and z to belong to set [-1, 0, 1]
+// returns a value in (inclusive) range [0, 26]
+constexpr static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
+
+// These assume i to be in (inclusive) range [0, 26]
+// returns a value from the set [-1, 0, 1]
+constexpr static int32_t linearToX(int32_t i) { return i / 9 - 1; }
+constexpr static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
+constexpr static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
+
+static std::array<int32_t, 27> mapNeigbourIndexToRank(const std::array<Task_t, 3>& taskPosition,
+                                                      const std::array<Task_t, 3>& numTasksPerDim,
+                                                      const std::array<bool, 3>& periodic, MPI_Comm comm,
+                                                      int32_t rank) {
+   auto calculateNeighbourRank = [&](int32_t neighbourIndex) {
+      auto calculateNeighbourPosition = [&](int32_t neighbourIndex, uint32_t i) {
+         const auto pos3D =
+             i == 0 ? linearToX(neighbourIndex) : (i == 1 ? linearToY(neighbourIndex) : linearToZ(neighbourIndex));
+         const auto nonPeriodicPos = taskPosition[i] + pos3D;
+         return periodic[i] ? (nonPeriodicPos + numTasksPerDim[i]) % numTasksPerDim[i] : nonPeriodicPos;
+      };
+
+      const std::array<Task_t, 3> neighbourPosition = {
+          calculateNeighbourPosition(neighbourIndex, 0),
+          calculateNeighbourPosition(neighbourIndex, 1),
+          calculateNeighbourPosition(neighbourIndex, 2),
+      };
+
+      const bool taskPositionWithinLimits = numTasksPerDim[0] > neighbourPosition[0] && neighbourPosition[0] >= 0 &&
+                                            numTasksPerDim[1] > neighbourPosition[1] && neighbourPosition[1] >= 0 &&
+                                            numTasksPerDim[2] > neighbourPosition[2] && neighbourPosition[2] >= 0;
+
+      if (taskPositionWithinLimits) {
+         int32_t neighbourRank;
+         FSGRID_MPI_CHECK(MPI_Cart_rank(comm, neighbourPosition.data(), &neighbourRank), "Rank ", rank,
+                          " can't determine neighbour rank at position [", neighbourPosition[0], ", ",
+                          neighbourPosition[1], ", ", neighbourPosition[2], "]");
+         return neighbourRank;
+      } else {
+         return MPI_PROC_NULL;
+      }
+   };
+
+   std::array<int32_t, 27> ranks;
+   if (rank == -1) {
+      ranks.fill(MPI_PROC_NULL);
+   } else {
+      std::generate(ranks.begin(), ranks.end(),
+                    [&calculateNeighbourRank, n = 0]() mutable { return calculateNeighbourRank(n++); });
+   }
+   return ranks;
+}
+
+static std::vector<char> mapNeighbourRankToIndex(const std::array<int32_t, 27>& indexToRankMap, FsSize_t numRanks) {
+   std::vector<char> indices(numRanks, MPI_PROC_NULL);
+   std::for_each(indexToRankMap.cbegin(), indexToRankMap.cend(), [&indices, &numRanks, n = 0](auto rank) mutable {
+      if (numRanks > rank && rank >= 0) {
+         indices[rank] = n;
+      }
+      n++;
+   });
+   return indices;
+}
+
+template <typename T>
+static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t, 3>& storageSize,
+                                                     const std::array<FsIndex_t, 3>& localSize, int32_t stencilSize,
+                                                     bool generateForSend) {
+   MPI_Datatype baseType;
+   FSGRID_MPI_CHECK(MPI_Type_contiguous(sizeof(T), MPI_BYTE, &baseType), "Failed to create a contiguous data type");
+   const std::array<int32_t, 3> reverseStorageSize = {
+       storageSize[2],
+       storageSize[1],
+       storageSize[0],
+   };
+   std::array<MPI_Datatype, 27> types;
+   types.fill(MPI_DATATYPE_NULL);
+
+   for (int32_t i = 0; i < 27; i++) {
+      const auto x = linearToX(i);
+      const auto y = linearToY(i);
+      const auto z = linearToZ(i);
+
+      const bool self = x == 0 && y == 0 && z == 0;
+      const bool flatX = storageSize[0] == 1 && x != 0;
+      const bool flatY = storageSize[1] == 1 && y != 0;
+      const bool flatZ = storageSize[2] == 1 && z != 0;
+      const bool skip = flatX || flatY || flatZ || self;
+
+      if (skip) {
+         continue;
+      }
+
+      const std::array<int32_t, 3> reverseSubarraySize = {
+          (z == 0) ? localSize[2] : stencilSize,
+          (y == 0) ? localSize[1] : stencilSize,
+          (x == 0) ? localSize[0] : stencilSize,
+      };
+
+      const std::array<int32_t, 3> reverseSubarrayStart = [&]() {
+         if (generateForSend) {
+            return std::array<int32_t, 3>{
+                storageSize[2] == 1 ? 0 : (z == 1 ? storageSize[2] - 2 * stencilSize : stencilSize),
+                storageSize[1] == 1 ? 0 : (y == 1 ? storageSize[1] - 2 * stencilSize : stencilSize),
+                storageSize[0] == 1 ? 0 : (x == 1 ? storageSize[0] - 2 * stencilSize : stencilSize),
+            };
+         } else {
+            return std::array<int32_t, 3>{
+                storageSize[2] == 1 ? 0 : (z == -1 ? storageSize[2] - stencilSize : (z == 0 ? stencilSize : 0)),
+                storageSize[1] == 1 ? 0 : (y == -1 ? storageSize[1] - stencilSize : (y == 0 ? stencilSize : 0)),
+                storageSize[0] == 1 ? 0 : (x == -1 ? storageSize[0] - stencilSize : (x == 0 ? stencilSize : 0)),
+            };
+         }
+      }();
+
+      FSGRID_MPI_CHECK(MPI_Type_create_subarray(3, reverseStorageSize.data(), reverseSubarraySize.data(),
+                                                reverseSubarrayStart.data(), MPI_ORDER_C, baseType, &(types[i])),
+                       "Failed to create a subarray type");
+      FSGRID_MPI_CHECK(MPI_Type_commit(&(types[i])), "Failed to commit MPI type");
+   }
+
+   FSGRID_MPI_CHECK(MPI_Type_free(&baseType), "Couldn't free the basetype used to create the sendTypes");
+
+   return types;
+}
+
 } // namespace FsGridTools
