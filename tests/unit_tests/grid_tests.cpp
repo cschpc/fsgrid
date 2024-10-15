@@ -135,17 +135,17 @@ TEST(FsGridTest, xyzToLinearToxyz) {
 TEST(FsGridTest, computeColorFs) {
    constexpr int32_t numRanks = 666;
    for (int32_t i = 0; i < numRanks; i++) {
-      ASSERT_EQ(Grid::computeColorFs(i, numRanks), 1);
+      ASSERT_EQ(Grid::FsGridComm::computeColourFs(i, numRanks), 1);
    }
 
-   ASSERT_EQ(Grid::computeColorFs(numRanks, numRanks), MPI_UNDEFINED);
+   ASSERT_EQ(Grid::FsGridComm::computeColourFs(numRanks, numRanks), MPI_UNDEFINED);
 }
 
 TEST(FsGridTest, computeColorAux1) {
    constexpr int32_t numRanks = 5;
    constexpr int32_t parentCommSize = 16;
-   ASSERT_EQ(Grid::computeColourAux(0, parentCommSize, numRanks), MPI_UNDEFINED);
+   ASSERT_EQ(Grid::FsGridComm::computeColourAux(0, parentCommSize, numRanks), MPI_UNDEFINED);
    for (int32_t i = 1; i < parentCommSize; i++) {
-      ASSERT_EQ(Grid::computeColourAux(i, parentCommSize, numRanks), (i - 1) / numRanks);
+      ASSERT_EQ(Grid::FsGridComm::computeColourAux(i, parentCommSize, numRanks), (i - 1) / numRanks);
    }
 }
