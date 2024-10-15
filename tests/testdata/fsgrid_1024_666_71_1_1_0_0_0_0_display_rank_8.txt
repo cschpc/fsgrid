@@ -1,18 +1,10 @@
 {
-	comm1d: 
-		comm rank: 8
-		comm size: 16
-		group rank: 8
-		group size: 16
-		is intercomm: 0
-	comm1d_aux: MPI_COMM_NULL
 	comm3d: 
 		comm rank: 8
 		comm size: 16
 		group rank: 8
 		group size: 16
 		is intercomm: 0
-	comm3d_aux: MPI_COMM_NULL
 	rank: 8
 	neigbour: [
 		0x00000007, 0x00000008, 0x00000009, 0x00000007, 0x00000008, 0x00000009, 0x00000007, 0x00000008, 0x00000009, 

@@ -144,10 +144,7 @@ public:
 
       // If non-FS process, set rank to -1 and localSize to zero and return
       if (colourFs == MPI_UNDEFINED) {
-         rank = -1;
          localSize = {0, 0, 0};
-         comm3d = comm3d_aux;
-         comm3d_aux = MPI_COMM_NULL;
          return;
       }
 
@@ -284,27 +281,27 @@ public:
       return decomposition;
    }
 
-   static int32_t computeColorFs(int32_t parentRank, int32_t numRanks) {
+   constexpr static int32_t computeColorFs(int32_t parentRank, int32_t numRanks) {
       return (parentRank < numRanks) ? 1 : MPI_UNDEFINED;
    }
 
-   static int32_t computeColourAux(int32_t parentRank, int32_t parentCommSize, int32_t numRanks) {
+   constexpr static int32_t computeColourAux(int32_t parentRank, int32_t parentCommSize, int32_t numRanks) {
       return (parentRank > (parentCommSize - 1) % numRanks) ? (parentRank - (parentCommSize % numRanks)) / numRanks
                                                             : MPI_UNDEFINED;
    }
 
    // Assumes x, y and z to belong to set [-1, 0, 1]
    // returns a value in (inclusive) range [0, 26]
-   static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
+   constexpr static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
 
    // These assume i to be in (inclusive) range [0, 26]
    // returns a value from the set [-1, 0, 1]
-   static int32_t linearToX(int32_t i) { return i / 9 - 1; }
-   static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
-   static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
+   constexpr static int32_t linearToX(int32_t i) { return i / 9 - 1; }
+   constexpr static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
+   constexpr static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
 
-   static bool localSizeTooSmall(std::array<FsSize_t, 3> globalSize, std::array<FsIndex_t, 3> localSize,
-                                 int32_t stencilSize) {
+   constexpr static bool localSizeTooSmall(std::array<FsSize_t, 3> globalSize, std::array<FsIndex_t, 3> localSize,
+                                           int32_t stencilSize) {
       const bool anyLocalIsZero = localSize[0] == 0 || localSize[1] == 0 || localSize[2] == 0;
       const bool stencilSizeBoundedByGlobalAndLocalSizes =
           (globalSize[0] > stencilSize && stencilSize > localSize[0]) ||
@@ -397,12 +394,6 @@ public:
 
       if (comm3d != MPI_COMM_NULL)
          FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
-      if (comm3d_aux != MPI_COMM_NULL)
-         FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d_aux), "Failed to free MPI comm3d aux");
-      if (comm1d != MPI_COMM_NULL)
-         FSGRID_MPI_CHECK(MPI_Comm_free(&comm1d), "Failed to free MPI comm1d");
-      if (comm1d_aux != MPI_COMM_NULL)
-         FSGRID_MPI_CHECK(MPI_Comm_free(&comm1d_aux), "Failed to free MPI comm1d aux");
    }
 
    /*! Returns the task responsible, and its localID for handling the cell with the given GlobalID
@@ -910,10 +901,7 @@ public:
 
       ss << "{";
 
-      pushMPIComm("\n\tcomm1d: ", comm1d, "\n\t\t");
-      pushMPIComm("\n\tcomm1d_aux: ", comm1d_aux, "\n\t\t");
       pushMPIComm("\n\tcomm3d: ", comm3d, "\n\t\t");
-      pushMPIComm("\n\tcomm3d_aux: ", comm3d_aux, "\n\t\t");
       ss << "\n\trank: " << rank;
       ss << "\n\tneigbour: [\n\t\t";
       pushContainerValues(neighbourIndexToRank, true, 9);
@@ -1130,10 +1118,7 @@ public:
 
 private:
    //! MPI Cartesian communicator used in this grid
-   MPI_Comm comm1d = MPI_COMM_NULL;
-   MPI_Comm comm1d_aux = MPI_COMM_NULL;
    MPI_Comm comm3d = MPI_COMM_NULL;
-   MPI_Comm comm3d_aux = MPI_COMM_NULL;
    //!< This task's rank in the communicator
    int32_t rank = 0;
    //!< Lookup table from index to rank in the neighbour array (includes self)
