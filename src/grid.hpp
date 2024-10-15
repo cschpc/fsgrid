@@ -20,6 +20,7 @@
   You should have received a copy of the GNU General Public License
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "cartesian_grid.hpp"
 #include "tools.hpp"
 
 #include <algorithm>
@@ -57,33 +58,22 @@ public:
     */
    FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parentComm, std::array<bool, 3> periodic,
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
-       : globalSize(globalSize), numTasksPerDim(computeNumTasksPerDim(globalSize, decomposition,
-                                                                      getFSCommSize(getCommSize(parentComm)), stencil)),
-         periodic(periodic),
-         comm3d(createCartesianCommunicator(
-             parentComm, computeColorFs(getCommRank(parentComm), getFSCommSize(getCommSize(parentComm))),
-             computeColourAux(getCommRank(parentComm), getCommSize(parentComm), getFSCommSize(getCommSize(parentComm))),
-             getCommRank(parentComm), numTasksPerDim, periodic)),
-         rank(getCartesianRank(
-             computeColorFs(getCommRank(parentComm), getFSCommSize(getCommSize(parentComm))),
-             computeColourAux(getCommRank(parentComm), getCommSize(parentComm), getFSCommSize(getCommSize(parentComm))),
-             comm3d)),
-         taskPosition(getTaskPosition(comm3d)),
-         localSize(calculateLocalSize(globalSize, numTasksPerDim, taskPosition, rank)),
-         localStart(calculateLocalStart(globalSize, numTasksPerDim, taskPosition)),
-         storageSize(calculateStorageSize(globalSize, localSize)),
-         neighbourIndexToRank(mapNeigbourIndexToRank(taskPosition, numTasksPerDim, periodic, comm3d, rank)),
-         neighbourRankToIndex(mapNeighbourRankToIndex(neighbourIndexToRank, getFSCommSize(getCommSize(parentComm)))),
-         data(rank == -1 ? 0 : std::accumulate(storageSize.cbegin(), storageSize.cend(), 1, std::multiplies<>())),
-         neighbourSendType(generateMPITypes(storageSize, localSize, stencil, true)),
-         neighbourReceiveType(generateMPITypes(storageSize, localSize, stencil, false)) {}
+       : cartesianGrid(fsgrid::CartesianGrid(globalSize, parentComm, periodic, decomposition, stencil)),
+         neighbourIndexToRank(mapNeigbourIndexToRank(cartesianGrid.taskPosition, cartesianGrid.numTasksPerDim, periodic,
+                                                     cartesianGrid.cartesian3d, cartesianGrid.rank)),
+         neighbourRankToIndex(mapNeighbourRankToIndex(neighbourIndexToRank, cartesianGrid.size)),
+         data(cartesianGrid.rank == -1 ? 0
+                                       : std::accumulate(cartesianGrid.storageSize.cbegin(),
+                                                         cartesianGrid.storageSize.cend(), 1, std::multiplies<>())),
+         neighbourSendType(generateMPITypes(cartesianGrid.storageSize, cartesianGrid.localSize, stencil, true)),
+         neighbourReceiveType(generateMPITypes(cartesianGrid.storageSize, cartesianGrid.localSize, stencil, false)) {}
 
    /*! Finalize instead of destructor, as the MPI calls fail after the main program called MPI_Finalize().
     *  Cleans up the cartesian communicator
     */
    void finalize() {
       // If not a non-FS process
-      if (rank != -1) {
+      if (cartesianGrid.rank != -1) {
          for (int32_t i = 0; i < 27; i++) {
             if (neighbourReceiveType[i] != MPI_DATATYPE_NULL)
                FSGRID_MPI_CHECK(MPI_Type_free(&(neighbourReceiveType[i])), "Failed to free MPI type");
@@ -91,47 +81,6 @@ public:
                FSGRID_MPI_CHECK(MPI_Type_free(&(neighbourSendType[i])), "Failed to free MPI type");
          }
       }
-
-      if (comm3d != MPI_COMM_NULL)
-         FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
-   }
-
-   static std::array<FsIndex_t, 3> calculateLocalSize(const std::array<FsSize_t, 3>& globalSize,
-                                                      const std::array<Task_t, 3>& numTasksPerDim,
-                                                      const std::array<Task_t, 3>& taskPosition, int rank) {
-      std::array localSize = {
-          FsGridTools::calcLocalSize(globalSize[0], numTasksPerDim[0], taskPosition[0]),
-          FsGridTools::calcLocalSize(globalSize[1], numTasksPerDim[1], taskPosition[1]),
-          FsGridTools::calcLocalSize(globalSize[2], numTasksPerDim[2], taskPosition[2]),
-      };
-
-      if (localSizeTooSmall(globalSize, localSize, stencil)) {
-         std::cerr << "FSGrid space partitioning leads to a space that is too small on Rank " << rank << "."
-                   << std::endl;
-         std::cerr << "Please run with a different number of Tasks, so that space is better divisible." << std::endl;
-         throw std::runtime_error("FSGrid too small domains");
-      }
-
-      return rank == -1 ? std::array{0, 0, 0} : localSize;
-   }
-
-   static std::array<FsIndex_t, 3> calculateLocalStart(const std::array<FsSize_t, 3>& globalSize,
-                                                       const std::array<Task_t, 3>& numTasksPerDim,
-                                                       const std::array<Task_t, 3>& taskPosition) {
-      return {
-          FsGridTools::calcLocalStart(globalSize[0], numTasksPerDim[0], taskPosition[0]),
-          FsGridTools::calcLocalStart(globalSize[1], numTasksPerDim[1], taskPosition[1]),
-          FsGridTools::calcLocalStart(globalSize[2], numTasksPerDim[2], taskPosition[2]),
-      };
-   }
-
-   static std::array<FsIndex_t, 3> calculateStorageSize(const std::array<FsSize_t, 3>& globalSize,
-                                                        const std::array<Task_t, 3>& localSize) {
-      return {
-          globalSize[0] <= 1 ? 1 : localSize[0] + stencil * 2,
-          globalSize[1] <= 1 ? 1 : localSize[1] + stencil * 2,
-          globalSize[2] <= 1 ? 1 : localSize[2] + stencil * 2,
-      };
    }
 
    static std::array<int32_t, 27> mapNeigbourIndexToRank(const std::array<Task_t, 3>& taskPosition,
@@ -188,87 +137,6 @@ public:
       return indices;
    }
 
-   static int32_t getFSCommSize(int32_t parentCommSize) {
-      const auto envVar = getenv("FSGRID_PROCS");
-      const auto fsgridProcs = envVar != NULL ? atoi(envVar) : 0;
-      return parentCommSize > fsgridProcs && fsgridProcs > 0 ? fsgridProcs : parentCommSize;
-   }
-
-   static int32_t getCommRank(MPI_Comm parentComm) {
-      int32_t parentRank;
-      FSGRID_MPI_CHECK(MPI_Comm_rank(parentComm, &parentRank), "Couldn't get rank from parent communicator");
-      return parentRank;
-   }
-
-   static int32_t getCommSize(MPI_Comm parentComm) {
-      int32_t parentCommSize;
-      FSGRID_MPI_CHECK(MPI_Comm_size(parentComm, &parentCommSize), "Couldn't get size from parent communicator");
-      return parentCommSize;
-   }
-
-   static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, int32_t colourFs, int32_t colourAux,
-                                               int32_t parentRank, const std::array<Task_t, 3>& numTasksPerDim,
-                                               const std::array<bool, 3>& isPeriodic) {
-      MPI_Comm comm;
-      if (colourFs != MPI_UNDEFINED) {
-         FSGRID_MPI_CHECK(MPI_Comm_split(parentComm, colourFs, parentRank, &comm),
-                          "Couldn's split parent communicator to subcommunicators");
-      } else {
-         FSGRID_MPI_CHECK(MPI_Comm_split(parentComm, colourAux, parentRank, &comm),
-                          "Couldn's split parent communicator to subcommunicators");
-      }
-      const std::array<int32_t, 3> pi = {
-          isPeriodic[0],
-          isPeriodic[1],
-          isPeriodic[2],
-      };
-      MPI_Comm comm3d;
-      FSGRID_MPI_CHECK(MPI_Cart_create(comm, 3, numTasksPerDim.data(), pi.data(), 0, &comm3d),
-                       "Creating cartesian communicatior failed when attempting to create FsGrid!");
-      FSGRID_MPI_CHECK(MPI_Comm_free(&comm), "Failed to free MPI comm");
-
-      return comm3d;
-   }
-
-   static int32_t getCartesianRank(int32_t colourFs, int32_t colourAux, MPI_Comm comm) {
-      return comm != MPI_UNDEFINED ? getCommRank(comm) : -1;
-   }
-
-   static std::array<Task_t, 3> getTaskPosition(MPI_Comm comm) {
-      std::array<Task_t, 3> taskPos;
-      const int rank = getCommRank(comm);
-      FSGRID_MPI_CHECK(MPI_Cart_coords(comm, rank, 3, taskPos.data()), "Rank ", rank,
-                       " unable to determine own position in cartesian communicator when attempting to create FsGrid!");
-      return taskPos;
-   }
-
-   static std::array<Task_t, 3> computeNumTasksPerDim(std::array<FsSize_t, 3> globalSize,
-                                                      const std::array<Task_t, 3>& decomposition, int32_t numRanks,
-                                                      int32_t stencilSize) {
-      const bool allZero = decomposition[0] == 0 && decomposition[1] == 0 && decomposition[2] == 0;
-      if (allZero) {
-         return FsGridTools::computeDomainDecomposition(globalSize, numRanks, stencilSize);
-      }
-
-      const bool incorrectDistribution = decomposition[0] * decomposition[1] * decomposition[2] != numRanks;
-      if (incorrectDistribution) {
-         std::cerr << "Given decomposition (" << decomposition[0] << " " << decomposition[1] << " " << decomposition[2]
-                   << ") does not distribute to the number of tasks given" << std::endl;
-         throw std::runtime_error("Given decomposition does not distribute to the number of tasks given");
-      }
-
-      return decomposition;
-   }
-
-   constexpr static int32_t computeColorFs(int32_t parentRank, int32_t numRanks) {
-      return (parentRank < numRanks) ? 1 : MPI_UNDEFINED;
-   }
-
-   constexpr static int32_t computeColourAux(int32_t parentRank, int32_t parentCommSize, int32_t numRanks) {
-      return (parentRank > (parentCommSize - 1) % numRanks) ? (parentRank - (parentCommSize % numRanks)) / numRanks
-                                                            : MPI_UNDEFINED;
-   }
-
    // Assumes x, y and z to belong to set [-1, 0, 1]
    // returns a value in (inclusive) range [0, 26]
    constexpr static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
@@ -278,17 +146,6 @@ public:
    constexpr static int32_t linearToX(int32_t i) { return i / 9 - 1; }
    constexpr static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
    constexpr static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
-
-   constexpr static bool localSizeTooSmall(std::array<FsSize_t, 3> globalSize, std::array<FsIndex_t, 3> localSize,
-                                           int32_t stencilSize) {
-      const bool anyLocalIsZero = localSize[0] == 0 || localSize[1] == 0 || localSize[2] == 0;
-      const bool stencilSizeBoundedByGlobalAndLocalSizes =
-          (globalSize[0] > stencilSize && stencilSize > localSize[0]) ||
-          (globalSize[1] > stencilSize && stencilSize > localSize[1]) ||
-          (globalSize[2] > stencilSize && stencilSize > localSize[2]);
-
-      return anyLocalIsZero || stencilSizeBoundedByGlobalAndLocalSizes;
-   }
 
    static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t, 3>& storageSize,
                                                         const std::array<FsIndex_t, 3>& localSize, int32_t stencilSize,
@@ -367,13 +224,13 @@ public:
     */
    std::pair<int32_t, LocalID> getTaskForGlobalID(GlobalID id) {
       // Transform globalID to global cell coordinate
-      std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
+      std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, cartesianGrid.globalSize);
 
       // Find the index in the task grid this Cell belongs to
       std::array<int32_t, 3> taskIndex;
       for (int32_t i = 0; i < 3; i++) {
-         int32_t n_per_task = globalSize[i] / numTasksPerDim[i];
-         int32_t remainder = globalSize[i] % numTasksPerDim[i];
+         int32_t n_per_task = cartesianGrid.globalSize[i] / cartesianGrid.numTasksPerDim[i];
+         int32_t remainder = cartesianGrid.globalSize[i] % cartesianGrid.numTasksPerDim[i];
 
          if (cell[i] < remainder * (n_per_task + 1)) {
             taskIndex[i] = cell[i] / (n_per_task + 1);
@@ -384,7 +241,7 @@ public:
 
       // Get the task number from the communicator
       std::pair<int32_t, LocalID> retVal;
-      FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &retVal.first),
+      FSGRID_MPI_CHECK(MPI_Cart_rank(cartesianGrid.cartesian3d, taskIndex.data(), &retVal.first),
                        "Unable to find FsGrid rank for global ID ", id, "(coordinates [", cell[0], ", ", cell[1], ", ",
                        cell[2], "])");
 
@@ -392,15 +249,17 @@ public:
       std::array<FsIndex_t, 3> thatTasksStart;
       std::array<FsIndex_t, 3> thatTaskStorageSize;
       for (int32_t i = 0; i < 3; i++) {
-         thatTasksStart[i] = FsGridTools::calcLocalStart(globalSize[i], numTasksPerDim[i], taskIndex[i]);
+         thatTasksStart[i] =
+             FsGridTools::calcLocalStart(cartesianGrid.globalSize[i], cartesianGrid.numTasksPerDim[i], taskIndex[i]);
          thatTaskStorageSize[i] =
-             FsGridTools::calcLocalSize(globalSize[i], numTasksPerDim[i], taskIndex[i]) + 2 * stencil;
+             FsGridTools::calcLocalSize(cartesianGrid.globalSize[i], cartesianGrid.numTasksPerDim[i], taskIndex[i]) +
+             2 * stencil;
       }
 
       retVal.second = 0;
       int32_t stride = 1;
       for (int32_t i = 0; i < 3; i++) {
-         if (globalSize[i] <= 1) {
+         if (cartesianGrid.globalSize[i] <= 1) {
             // Collapsed dimension, doesn't contribute.
             retVal.second += 0;
          } else {
@@ -420,12 +279,12 @@ public:
     */
    std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) {
       std::array<FsIndex_t, 3> retval;
-      retval[0] = (FsIndex_t)x - localStart[0];
-      retval[1] = (FsIndex_t)y - localStart[1];
-      retval[2] = (FsIndex_t)z - localStart[2];
+      retval[0] = (FsIndex_t)x - cartesianGrid.localStart[0];
+      retval[1] = (FsIndex_t)y - cartesianGrid.localStart[1];
+      retval[2] = (FsIndex_t)z - cartesianGrid.localStart[2];
 
-      if (retval[0] >= localSize[0] || retval[1] >= localSize[1] || retval[2] >= localSize[2] || retval[0] < 0 ||
-          retval[1] < 0 || retval[2] < 0) {
+      if (retval[0] >= cartesianGrid.localSize[0] || retval[1] >= cartesianGrid.localSize[1] ||
+          retval[2] >= cartesianGrid.localSize[2] || retval[0] < 0 || retval[1] < 0 || retval[2] < 0) {
          return {-1, -1, -1};
       }
 
@@ -438,8 +297,8 @@ public:
     * \param z The cell's task-local z coordinate
     */
    GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
-      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
-             globalSize[0] * globalSize[1] * (z + localStart[2]);
+      return x + cartesianGrid.localStart[0] + cartesianGrid.globalSize[0] * (y + cartesianGrid.localStart[1]) +
+             cartesianGrid.globalSize[0] * cartesianGrid.globalSize[1] * (z + cartesianGrid.localStart[2]);
    }
 
    /*! Determine the cell's LocalID from its local x,y,z coordinates
@@ -449,13 +308,13 @@ public:
     */
    LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
       LocalID index = 0;
-      if (globalSize[2] > 1) {
-         index += storageSize[0] * storageSize[1] * (stencil + z);
+      if (cartesianGrid.globalSize[2] > 1) {
+         index += cartesianGrid.storageSize[0] * cartesianGrid.storageSize[1] * (stencil + z);
       }
-      if (globalSize[1] > 1) {
-         index += storageSize[0] * (stencil + y);
+      if (cartesianGrid.globalSize[1] > 1) {
+         index += cartesianGrid.storageSize[0] * (stencil + y);
       }
-      if (globalSize[0] > 1) {
+      if (cartesianGrid.globalSize[0] > 1) {
          index += stencil + x;
       }
 
@@ -466,7 +325,7 @@ public:
     */
    void updateGhostCells() {
 
-      if (rank == -1)
+      if (cartesianGrid.rank == -1)
          return;
 
       // TODO, faster with simultaneous isends& ireceives?
@@ -486,10 +345,10 @@ public:
                if (neighbourIndexToRank[receiveId] != MPI_PROC_NULL &&
                    neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
                   FSGRID_MPI_CHECK(MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId],
-                                             neighbourIndexToRank[receiveId], shiftId, comm3d,
+                                             neighbourIndexToRank[receiveId], shiftId, cartesianGrid.cartesian3d,
                                              &(receiveRequests[shiftId])),
-                                   "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ",
-                                   neighbourIndexToRank[receiveId]);
+                                   "Rank ", cartesianGrid.rank, " failed to receive data from neighbor ", receiveId,
+                                   " with rank ", neighbourIndexToRank[receiveId]);
                }
             }
          }
@@ -502,9 +361,9 @@ public:
                int32_t sendId = shiftId;
                if (neighbourIndexToRank[sendId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
                   FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbourIndexToRank[sendId],
-                                             shiftId, comm3d, &(sendRequests[shiftId])),
-                                   "Rank ", rank, " failed to send data to neighbor ", sendId, " with rank ",
-                                   neighbourIndexToRank[sendId]);
+                                             shiftId, cartesianGrid.cartesian3d, &(sendRequests[shiftId])),
+                                   "Rank ", cartesianGrid.rank, " failed to send data to neighbor ", sendId,
+                                   " with rank ", neighbourIndexToRank[sendId]);
                }
             }
          }
@@ -517,15 +376,15 @@ public:
 
    /*! Get the size of the local domain handled by this grid.
     */
-   std::array<FsIndex_t, 3>& getLocalSize() { return localSize; }
+   std::array<FsIndex_t, 3>& getLocalSize() { return cartesianGrid.localSize; }
 
    /*! Get the start coordinates of the local domain handled by this grid.
     */
-   std::array<FsIndex_t, 3>& getLocalStart() { return localStart; }
+   std::array<FsIndex_t, 3>& getLocalStart() { return cartesianGrid.localStart; }
 
    /*! Get global size of the fsgrid domain
     */
-   std::array<FsSize_t, 3>& getGlobalSize() { return globalSize; }
+   std::array<FsSize_t, 3>& getGlobalSize() { return cartesianGrid.globalSize; }
 
    /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
     *
@@ -537,9 +396,9 @@ public:
     */
    std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
       std::array<FsIndex_t, 3> retval;
-      retval[0] = localStart[0] + x;
-      retval[1] = localStart[1] + y;
-      retval[2] = localStart[2] + z;
+      retval[0] = cartesianGrid.localStart[0] + x;
+      retval[1] = cartesianGrid.localStart[1] + y;
+      retval[2] = cartesianGrid.localStart[2] + z;
 
       return retval;
    }
@@ -559,7 +418,7 @@ public:
          isInNeighbourDomain -= 9;
          coord_shift[0] = 1;
       }
-      if (x >= localSize[0]) {
+      if (x >= cartesianGrid.localSize[0]) {
          isInNeighbourDomain += 9;
          coord_shift[0] = -1;
       }
@@ -567,7 +426,7 @@ public:
          isInNeighbourDomain -= 3;
          coord_shift[1] = 1;
       }
-      if (y >= localSize[1]) {
+      if (y >= cartesianGrid.localSize[1]) {
          isInNeighbourDomain += 3;
          coord_shift[1] = -1;
       }
@@ -575,7 +434,7 @@ public:
          isInNeighbourDomain -= 1;
          coord_shift[2] = 1;
       }
-      if (z >= localSize[2]) {
+      if (z >= cartesianGrid.localSize[2]) {
          isInNeighbourDomain += 1;
          coord_shift[2] = -1;
       }
@@ -636,12 +495,12 @@ public:
             // (or something is quite wrong)
             return NULL;
 
-         } else if (neighbourIndexToRank[isInNeighbourDomain] == rank) {
+         } else if (neighbourIndexToRank[isInNeighbourDomain] == cartesianGrid.rank) {
             // For periodic boundaries, where the neighbour is actually ourself,
             // return our own actual cell instead of the ghost
-            x += coord_shift[0] * localSize[0];
-            y += coord_shift[1] * localSize[1];
-            z += coord_shift[2] * localSize[2];
+            x += coord_shift[0] * cartesianGrid.localSize[0];
+            y += coord_shift[1] * cartesianGrid.localSize[1];
+            z += coord_shift[2] * cartesianGrid.localSize[2];
          }
          // Otherwise we return the ghost cell
       }
@@ -669,9 +528,9 @@ public:
     */
    std::array<double, 3> getPhysicalCoords(int32_t x, int32_t y, int32_t z) {
       std::array<double, 3> coords;
-      coords[0] = physicalGlobalStart[0] + (localStart[0] + x) * DX;
-      coords[1] = physicalGlobalStart[1] + (localStart[1] + y) * DY;
-      coords[2] = physicalGlobalStart[2] + (localStart[2] + z) * DZ;
+      coords[0] = physicalGlobalStart[0] + (cartesianGrid.localStart[0] + x) * DX;
+      coords[1] = physicalGlobalStart[1] + (cartesianGrid.localStart[1] + y) * DY;
+      coords[2] = physicalGlobalStart[2] + (cartesianGrid.localStart[2] + z) * DZ;
 
       return coords;
    }
@@ -692,17 +551,17 @@ public:
       int32_t xmin = 0, xmax = 1;
       int32_t ymin = 0, ymax = 1;
       int32_t zmin = 0, zmax = 1;
-      if (localSize[0] > 1) {
+      if (cartesianGrid.localSize[0] > 1) {
          xmin = -stencil;
-         xmax = localSize[0] + stencil;
+         xmax = cartesianGrid.localSize[0] + stencil;
       }
-      if (localSize[1] > 1) {
+      if (cartesianGrid.localSize[1] > 1) {
          ymin = -stencil;
-         ymax = localSize[1] + stencil;
+         ymax = cartesianGrid.localSize[1] + stencil;
       }
-      if (localSize[2] > 1) {
+      if (cartesianGrid.localSize[2] > 1) {
          zmin = -stencil;
-         zmax = localSize[2] + stencil;
+         zmax = cartesianGrid.localSize[2] + stencil;
       }
       for (int32_t z = zmin; z < zmax; z++) {
          for (int32_t y = ymin; y < ymax; y++) {
@@ -716,13 +575,15 @@ public:
    }
 
    /*! Get the rank of this CPU in the FsGrid communicator */
-   int32_t getRank() { return rank; }
+   int32_t getRank() { return cartesianGrid.rank; }
 
    /*! Get the number of ranks in the FsGrid communicator */
-   int32_t getSize() { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
+   int32_t getSize() {
+      return cartesianGrid.numTasksPerDim[0] * cartesianGrid.numTasksPerDim[1] * cartesianGrid.numTasksPerDim[2];
+   }
 
    /*! Get in which directions, if any, this grid is periodic */
-   std::array<bool, 3>& getPeriodic() { return periodic; }
+   std::array<bool, 3>& getPeriodic() { return cartesianGrid.periodic; }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
@@ -730,8 +591,8 @@ public:
    int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) {
 
       // If a normal FS-rank
-      if (rank != -1) {
-         return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm3d);
+      if (cartesianGrid.rank != -1) {
+         return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, cartesianGrid.cartesian3d);
       }
       // If a non-FS rank, no need to communicate
       else {
@@ -744,7 +605,7 @@ public:
    }
 
    /*! Get the decomposition array*/
-   std::array<Task_t, 3>& getDecomposition() { return numTasksPerDim; }
+   std::array<Task_t, 3>& getDecomposition() { return cartesianGrid.numTasksPerDim; }
 
    // Debug helper types, can be removed once fsgrid is split to different structs
    std::string display() const {
@@ -867,8 +728,8 @@ public:
 
       ss << "{";
 
-      pushMPIComm("\n\tcomm3d: ", comm3d, "\n\t\t");
-      ss << "\n\trank: " << rank;
+      pushMPIComm("\n\tcomm3d: ", cartesianGrid.cartesian3d, "\n\t\t");
+      ss << "\n\trank: " << cartesianGrid.rank;
       ss << "\n\tneigbour: [\n\t\t";
       pushContainerValues(neighbourIndexToRank, true, 9);
       ss << "\n\t]";
@@ -876,22 +737,22 @@ public:
       pushContainerValues(neighbourRankToIndex, true, 9);
       ss << "\n\t]";
       ss << "\n\tntasksPerDim: [\n\t\t";
-      pushContainerValues(numTasksPerDim);
+      pushContainerValues(cartesianGrid.numTasksPerDim);
       ss << "\n\t]";
       ss << "\n\ttaskPosition: [\n\t\t";
-      pushContainerValues(taskPosition);
+      pushContainerValues(cartesianGrid.taskPosition);
       ss << "\n\t]";
       ss << "\n\tperiodic: [\n\t\t";
-      pushContainerValues(periodic);
+      pushContainerValues(cartesianGrid.periodic);
       ss << "\n\t]";
       ss << "\n\tglobalSize: [\n\t\t";
-      pushContainerValues(globalSize);
+      pushContainerValues(cartesianGrid.globalSize);
       ss << "\n\t]";
       ss << "\n\tlocalSize: [\n\t\t";
-      pushContainerValues(localSize);
+      pushContainerValues(cartesianGrid.localSize);
       ss << "\n\t]";
       ss << "\n\tlocalStart: [\n\t\t";
-      pushContainerValues(localStart);
+      pushContainerValues(cartesianGrid.localStart);
       ss << "\n\t]";
       ss << "\n\tneigbourSendType: [";
       for (const auto& v : getMPITypes(neighbourSendType)) {
@@ -1083,24 +944,8 @@ public:
    std::array<double, 3> physicalGlobalStart = {};
 
 private:
-   //!< Global size of the simulation space, in cells
-   std::array<FsSize_t, 3> globalSize = {};
-   //!< Number of tasks in each direction
-   std::array<Task_t, 3> numTasksPerDim = {};
-   //!< Information about whether a given direction is periodic
-   std::array<bool, 3> periodic = {};
-   //! MPI Cartesian communicator used in this grid
-   MPI_Comm comm3d = MPI_COMM_NULL;
-   //!< This task's rank in the communicator
-   int32_t rank = 0;
-   //!< This task's position in the 3d task grid
-   std::array<Task_t, 3> taskPosition = {};
-   //!< Local size of simulation space handled by this task (without ghost cells)
-   std::array<FsIndex_t, 3> localSize = {};
-   //!< Offset of the local coordinate system against the global one
-   std::array<FsIndex_t, 3> localStart = {};
-   //!< Local size of simulation space handled by this task (including ghost cells)
-   std::array<FsIndex_t, 3> storageSize = {};
+   //!< Cartesian grid
+   fsgrid::CartesianGrid cartesianGrid = {};
    //!< Lookup table from index to rank in the neighbour array (includes self)
    std::array<int32_t, 27> neighbourIndexToRank = {
        MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL,
