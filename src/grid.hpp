@@ -618,9 +618,9 @@ public:
     */
    std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
       return {
-          localStart[0] + x,
-          localStart[1] + y,
-          localStart[2] + z,
+          localStart[0] + static_cast<FsIndex_t>(x),
+          localStart[1] + static_cast<FsIndex_t>(y),
+          localStart[2] + static_cast<FsIndex_t>(z),
       };
    }
 
