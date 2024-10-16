@@ -555,6 +555,36 @@ public:
       return retVal;
    }
 
+   /*! Determine the cell's GlobalID from its local x,y,z coordinates
+    * \param x The cell's task-local x coordinate
+    * \param y The cell's task-local y coordinate
+    * \param z The cell's task-local z coordinate
+    */
+   GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
+      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
+             globalSize[0] * globalSize[1] * (z + localStart[2]);
+   }
+
+   /*! Determine the cell's LocalID from its local x,y,z coordinates
+    * \param x The cell's task-local x coordinate
+    * \param y The cell's task-local y coordinate
+    * \param z The cell's task-local z coordinate
+    */
+   LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
+      LocalID index = 0;
+      if (globalSize[2] > 1) {
+         index += storageSize[0] * storageSize[1] * (stencil + z);
+      }
+      if (globalSize[1] > 1) {
+         index += storageSize[0] * (stencil + y);
+      }
+      if (globalSize[0] > 1) {
+         index += stencil + x;
+      }
+
+      return index;
+   }
+
    /*! Transform global cell coordinates into the local domain.
     * If the coordinates are out of bounds, (-1,-1,-1) is returned.
     * \param x The cell's global x coordinate
@@ -592,36 +622,6 @@ public:
           localStart[1] + y,
           localStart[2] + z,
       };
-   }
-
-   /*! Determine the cell's GlobalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
-      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
-             globalSize[0] * globalSize[1] * (z + localStart[2]);
-   }
-
-   /*! Determine the cell's LocalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
-      LocalID index = 0;
-      if (globalSize[2] > 1) {
-         index += storageSize[0] * storageSize[1] * (stencil + z);
-      }
-      if (globalSize[1] > 1) {
-         index += storageSize[0] * (stencil + y);
-      }
-      if (globalSize[0] > 1) {
-         index += stencil + x;
-      }
-
-      return index;
    }
 
    /*! Get the physical coordinates in the global simulation space for
