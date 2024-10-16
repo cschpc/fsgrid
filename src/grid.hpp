@@ -646,26 +646,31 @@ public:
    /*! Get the size of the local domain handled by this grid.
     */
    std::array<FsIndex_t, 3>& getLocalSize() { return localSize; }
+   const std::array<FsIndex_t, 3>& getLocalSize() const { return localSize; }
 
    /*! Get the start coordinates of the local domain handled by this grid.
     */
    std::array<FsIndex_t, 3>& getLocalStart() { return localStart; }
+   const std::array<FsIndex_t, 3>& getLocalStart() const { return localStart; }
 
    /*! Get global size of the fsgrid domain
     */
    std::array<FsSize_t, 3>& getGlobalSize() { return globalSize; }
+   const std::array<FsSize_t, 3>& getGlobalSize() const { return globalSize; }
 
    /*! Get the rank of this CPU in the FsGrid communicator */
-   int32_t getRank() { return rank; }
+   int32_t getRank() const { return rank; }
 
    /*! Get the number of ranks in the FsGrid communicator */
-   int32_t getSize() { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
+   int32_t getSize() const { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
 
    /*! Get in which directions, if any, this grid is periodic */
    std::array<bool, 3>& getPeriodic() { return periodic; }
+   const std::array<bool, 3>& getPeriodic() const { return periodic; }
 
    /*! Get the decomposition array*/
    std::array<Task_t, 3>& getDecomposition() { return numTasksPerDim; }
+   const std::array<Task_t, 3>& getDecomposition() const { return numTasksPerDim; }
 
    // ============================
    // Misc functions
