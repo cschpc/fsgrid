@@ -560,10 +560,11 @@ public:
     * \param z The cell's global z coordinate
     */
    std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) {
-      std::array<FsIndex_t, 3> retval;
-      retval[0] = (FsIndex_t)x - localStart[0];
-      retval[1] = (FsIndex_t)y - localStart[1];
-      retval[2] = (FsIndex_t)z - localStart[2];
+      const std::array<FsIndex_t, 3> retval{
+          (FsIndex_t)x - localStart[0],
+          (FsIndex_t)y - localStart[1],
+          (FsIndex_t)z - localStart[2],
+      };
 
       if (retval[0] >= localSize[0] || retval[1] >= localSize[1] || retval[2] >= localSize[2] || retval[0] < 0 ||
           retval[1] < 0 || retval[2] < 0) {
@@ -584,12 +585,11 @@ public:
     * \return Global cell coordinates
     */
    std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
-      std::array<FsIndex_t, 3> retval;
-      retval[0] = localStart[0] + x;
-      retval[1] = localStart[1] + y;
-      retval[2] = localStart[2] + z;
-
-      return retval;
+      return {
+          localStart[0] + x,
+          localStart[1] + y,
+          localStart[2] + z,
+      };
    }
 
    /*! Determine the cell's GlobalID from its local x,y,z coordinates
@@ -630,12 +630,11 @@ public:
     * \param z local z-Coordinate, in cells
     */
    std::array<double, 3> getPhysicalCoords(int32_t x, int32_t y, int32_t z) {
-      std::array<double, 3> coords;
-      coords[0] = physicalGlobalStart[0] + (localStart[0] + x) * DX;
-      coords[1] = physicalGlobalStart[1] + (localStart[1] + y) * DY;
-      coords[2] = physicalGlobalStart[2] + (localStart[2] + z) * DZ;
-
-      return coords;
+      return {
+          physicalGlobalStart[0] + (localStart[0] + x) * DX,
+          physicalGlobalStart[1] + (localStart[1] + y) * DY,
+          physicalGlobalStart[2] + (localStart[2] + z) * DZ,
+      };
    }
 
    // ============================
@@ -726,7 +725,6 @@ public:
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
     * argument will not be needed) */
    int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) {
-
       // If a normal FS-rank
       if (rank != -1) {
          return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm3d);
