@@ -171,3 +171,26 @@ TEST(FsGridTest, localToGlobalRoundtrip1) {
       }
    }
 }
+
+TEST(FsGridTest, myGlobalIDCorrespondsToMyTask) {
+   int rank = 0;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+   const std::array<FsGridTools::FsSize_t, 3> globalSize{6547, 16, 77};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, false, false};
+
+   const auto grid = FsGrid<std::array<double, 6>, 1>(globalSize, parentComm, periodic);
+   const auto localSize = grid.getLocalSize();
+   for (int32_t x = 0; x < localSize[0]; x++) {
+      for (int32_t y = 0; y < localSize[1]; y++) {
+         for (int32_t z = 0; z < localSize[2]; z++) {
+            const auto gid = grid.globalIDFromLocalCoordinates(x, y, z);
+            const auto task = grid.getTaskForGlobalID(gid);
+            ASSERT_EQ(task, rank);
+            ASSERT_EQ(task, rank);
+            ASSERT_EQ(task, rank);
+         }
+      }
+   }
+}
