@@ -377,6 +377,7 @@ public:
    // Data access functions
    // ============================
    std::vector<T>& getData() { return data; }
+   const std::vector<T>& getData() const { return data; }
 
    void copyData(FsGrid& other) {
       // Copy assignment
@@ -390,7 +391,7 @@ public:
     * \param z z-Coordinate, in cells
     * \return A reference to cell data in the given cell
     */
-   T* get(int32_t x, int32_t y, int32_t z) {
+   T* get(FsIndex_t x, FsIndex_t y, FsIndex_t z) {
 
       // Keep track which neighbour this cell actually belongs to (13 = ourself)
       int32_t isInNeighbourDomain = 13;
@@ -508,7 +509,7 @@ public:
     * \param id GlobalID of the cell for which task is to be determined
     * \return a task for the grid's cartesian communicator
     */
-   std::pair<int32_t, LocalID> getTaskForGlobalID(GlobalID id) {
+   std::pair<int32_t, LocalID> getTaskForGlobalID(GlobalID id) const {
       // Transform globalID to global cell coordinate
       std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
 
@@ -560,7 +561,7 @@ public:
     * \param y The cell's task-local y coordinate
     * \param z The cell's task-local z coordinate
     */
-   GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
+   GlobalID GlobalIDForCoords(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
              globalSize[0] * globalSize[1] * (z + localStart[2]);
    }
@@ -570,7 +571,7 @@ public:
     * \param y The cell's task-local y coordinate
     * \param z The cell's task-local z coordinate
     */
-   LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
+   LocalID LocalIDForCoords(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       LocalID index = 0;
       if (globalSize[2] > 1) {
          index += storageSize[0] * storageSize[1] * (stencil + z);
@@ -591,7 +592,7 @@ public:
     * \param y The cell's global y coordinate
     * \param z The cell's global z coordinate
     */
-   std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) {
+   std::array<FsIndex_t, 3> globalToLocal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       const std::array<FsIndex_t, 3> retval{
           (FsIndex_t)x - localStart[0],
           (FsIndex_t)y - localStart[1],
@@ -606,7 +607,6 @@ public:
       return retval;
    }
 
-   // TODO rename to localToGlobal
    // Test
    /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
     *
@@ -616,11 +616,11 @@ public:
     *
     * \return Global cell coordinates
     */
-   std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
+   std::array<FsIndex_t, 3> localToGlobal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       return {
-          localStart[0] + static_cast<FsIndex_t>(x),
-          localStart[1] + static_cast<FsIndex_t>(y),
-          localStart[2] + static_cast<FsIndex_t>(z),
+          localStart[0] + x,
+          localStart[1] + y,
+          localStart[2] + z,
       };
    }
 
@@ -631,7 +631,7 @@ public:
     * \param y local y-Coordinate, in cells
     * \param z local z-Coordinate, in cells
     */
-   std::array<double, 3> getPhysicalCoords(int32_t x, int32_t y, int32_t z) {
+   std::array<double, 3> getPhysicalCoords(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       return {
           physicalGlobalStart[0] + (localStart[0] + x) * DX,
           physicalGlobalStart[1] + (localStart[1] + y) * DY,
@@ -731,7 +731,7 @@ public:
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
     * argument will not be needed) */
-   int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) {
+   int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) const {
       // If a normal FS-rank
       if (rank != -1) {
          return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm3d);
