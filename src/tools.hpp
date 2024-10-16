@@ -45,8 +45,8 @@ typedef int32_t Task_t;
 // \param taskIndex This task's position in this dimension
 // \return Number of cells for this task's local domain (actual cells, not counting ghost cells)
 static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
-   const FsIndex_t nPerTask = numCells / numTasks;
-   const FsIndex_t remainder = numCells % numTasks;
+   const FsIndex_t nPerTask = static_cast<Task_t>(numCells) / numTasks;
+   const FsIndex_t remainder = static_cast<Task_t>(numCells) % numTasks;
    return nPerTask + (taskIndex < remainder);
 }
 
@@ -56,7 +56,7 @@ static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIn
 // \param taskIndex This task's position in this dimension
 // \return Cell number at which this task's domains cells start (actual cells, not counting ghost cells)
 static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
-   const FsIndex_t remainder = numCells % numTasks;
+   const FsIndex_t remainder = static_cast<Task_t>(numCells) % numTasks;
    return taskIndex * calcLocalSize(numCells, numTasks, taskIndex) + (taskIndex >= remainder) * remainder;
 }
 
@@ -104,9 +104,9 @@ static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_
        globalSize[2] == 1 ? 1 : stencilSize,
    };
    const std::array maxDomainSize = {
-       std::min(nProcs, static_cast<Task_t>(globalSize[0] / minDomainSize[0])),
-       std::min(nProcs, static_cast<Task_t>(globalSize[1] / minDomainSize[1])),
-       std::min(nProcs, static_cast<Task_t>(globalSize[2] / minDomainSize[2])),
+       std::min(nProcs, static_cast<Task_t>(globalSize[0] / static_cast<FsSize_t>(minDomainSize[0]))),
+       std::min(nProcs, static_cast<Task_t>(globalSize[1] / static_cast<FsSize_t>(minDomainSize[1]))),
+       std::min(nProcs, static_cast<Task_t>(globalSize[2] / static_cast<FsSize_t>(minDomainSize[2]))),
    };
 
    int64_t minimumCost = std::numeric_limits<int64_t>::max();

@@ -101,7 +101,7 @@ struct SystemSize {
    uint32_t z = 0u;
 };
 
-Decomposition computeDecomposition(const SystemSize systemSize, const uint32_t nProcs) {
+Decomposition computeDecomposition(const SystemSize systemSize, const FsGridTools::Task_t nProcs) {
    const auto dd = FsGridTools::computeDomainDecomposition(
        {
            systemSize.x,

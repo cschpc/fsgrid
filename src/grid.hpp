@@ -46,20 +46,23 @@ using Task_t = FsGridTools::Task_t;
 
 // Assumes x, y and z to belong to set [-1, 0, 1]
 // returns a value in (inclusive) range [0, 26]
-constexpr static int32_t xyzToLinear(int32_t x, int32_t y, int32_t z) { return (x + 1) * 9 + (y + 1) * 3 + (z + 1); }
+constexpr static uint32_t xyzToLinear(int32_t x, int32_t y, int32_t z) {
+   return static_cast<uint32_t>((x + 1) * 9 + (y + 1) * 3 + (z + 1));
+}
 
 // These assume i to be in (inclusive) range [0, 26]
 // returns a value from the set [-1, 0, 1]
-constexpr static int32_t linearToX(int32_t i) { return i / 9 - 1; }
-constexpr static int32_t linearToY(int32_t i) { return (i % 9) / 3 - 1; }
-constexpr static int32_t linearToZ(int32_t i) { return i % 3 - 1; }
+constexpr static int32_t linearToX(uint32_t i) { return static_cast<int32_t>(i) / 9 - 1; }
+constexpr static int32_t linearToY(uint32_t i) { return (static_cast<int32_t>(i) % 9) / 3 - 1; }
+constexpr static int32_t linearToZ(uint32_t i) { return static_cast<int32_t>(i) % 3 - 1; }
 
 constexpr static bool localSizeTooSmall(std::array<FsSize_t, 3> globalSize, std::array<FsIndex_t, 3> localSize,
                                         int32_t stencilSize) {
    const bool anyLocalIsZero = localSize[0] == 0 || localSize[1] == 0 || localSize[2] == 0;
-   const bool stencilSizeBoundedByGlobalAndLocalSizes = (globalSize[0] > stencilSize && stencilSize > localSize[0]) ||
-                                                        (globalSize[1] > stencilSize && stencilSize > localSize[1]) ||
-                                                        (globalSize[2] > stencilSize && stencilSize > localSize[2]);
+   const bool stencilSizeBoundedByGlobalAndLocalSizes =
+       (globalSize[0] > static_cast<uint32_t>(stencilSize) && stencilSize > localSize[0]) ||
+       (globalSize[1] > static_cast<uint32_t>(stencilSize) && stencilSize > localSize[1]) ||
+       (globalSize[2] > static_cast<uint32_t>(stencilSize) && stencilSize > localSize[2]);
 
    return anyLocalIsZero || stencilSizeBoundedByGlobalAndLocalSizes;
 }
@@ -106,8 +109,8 @@ static std::array<int32_t, 27> mapNeigbourIndexToRank(const std::array<Task_t, 3
                                                       const std::array<Task_t, 3>& numTasksPerDim,
                                                       const std::array<bool, 3>& periodic, MPI_Comm comm,
                                                       int32_t rank) {
-   auto calculateNeighbourRank = [&](int32_t neighbourIndex) {
-      auto calculateNeighbourPosition = [&](int32_t neighbourIndex, uint32_t i) {
+   auto calculateNeighbourRank = [&](uint32_t neighbourIndex) {
+      auto calculateNeighbourPosition = [&](uint32_t neighbourIndex, uint32_t i) {
          const auto pos3D =
              i == 0 ? linearToX(neighbourIndex) : (i == 1 ? linearToY(neighbourIndex) : linearToZ(neighbourIndex));
          const auto nonPeriodicPos = taskPosition[i] + pos3D;
@@ -140,16 +143,16 @@ static std::array<int32_t, 27> mapNeigbourIndexToRank(const std::array<Task_t, 3
       ranks.fill(MPI_PROC_NULL);
    } else {
       std::generate(ranks.begin(), ranks.end(),
-                    [&calculateNeighbourRank, n = 0]() mutable { return calculateNeighbourRank(n++); });
+                    [&calculateNeighbourRank, n = 0u]() mutable { return calculateNeighbourRank(n++); });
    }
    return ranks;
 }
 
-static std::vector<char> mapNeighbourRankToIndex(const std::array<int32_t, 27>& indexToRankMap, FsSize_t numRanks) {
-   std::vector<char> indices(numRanks, MPI_PROC_NULL);
-   std::for_each(indexToRankMap.cbegin(), indexToRankMap.cend(), [&indices, &numRanks, n = 0](auto rank) mutable {
-      if (numRanks > rank && rank >= 0) {
-         indices[rank] = n;
+static std::vector<char> mapNeighbourRankToIndex(const std::array<int32_t, 27>& indexToRankMap, int32_t numRanks) {
+   std::vector<char> indices(static_cast<size_t>(numRanks), MPI_PROC_NULL);
+   std::for_each(indexToRankMap.cbegin(), indexToRankMap.cend(), [&indices, &numRanks, n = 0u](int32_t rank) mutable {
+      if (rank >= 0 && numRanks > rank) {
+         indices[static_cast<FsSize_t>(rank)] = static_cast<int8_t>(n);
       }
       n++;
    });
@@ -198,8 +201,8 @@ static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, int32_t colourF
    return comm3d;
 }
 
-static int32_t getCartesianRank(int32_t colourFs, int32_t colourAux, MPI_Comm comm) {
-   return comm != MPI_UNDEFINED ? getCommRank(comm) : -1;
+static int32_t getCartesianRank(int32_t colourFs, MPI_Comm comm) {
+   return colourFs != MPI_UNDEFINED ? getCommRank(comm) : -1;
 }
 
 static std::array<Task_t, 3> getTaskPosition(MPI_Comm comm) {
@@ -251,7 +254,7 @@ static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t,
    std::array<MPI_Datatype, 27> types;
    types.fill(MPI_DATATYPE_NULL);
 
-   for (int32_t i = 0; i < 27; i++) {
+   for (uint32_t i = 0; i < 27; i++) {
       const auto x = linearToX(i);
       const auto y = linearToY(i);
       const auto z = linearToZ(i);
@@ -336,9 +339,6 @@ public:
          rank(fsgrid_detail::getCartesianRank(
              fsgrid_detail::computeColorFs(fsgrid_detail::getCommRank(parentComm),
                                            fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
-             fsgrid_detail::computeColourAux(fsgrid_detail::getCommRank(parentComm),
-                                             fsgrid_detail::getCommSize(parentComm),
-                                             fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
              comm3d)),
          localSize(fsgrid_detail::calculateLocalSize(globalSize, numTasksPerDim, fsgrid_detail::getTaskPosition(comm3d),
                                                      rank, stencil)),
@@ -349,7 +349,9 @@ public:
                                                                     numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(fsgrid_detail::mapNeighbourRankToIndex(
              neighbourIndexToRank, fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)))),
-         data(rank == -1 ? 0 : std::accumulate(storageSize.cbegin(), storageSize.cend(), 1, std::multiplies<>())),
+         data(rank == -1 ? 0ul
+                         : static_cast<size_t>(
+                               std::accumulate(storageSize.cbegin(), storageSize.cend(), 1, std::multiplies<>()))),
          neighbourSendType(fsgrid_detail::generateMPITypes<T>(storageSize, localSize, stencil, true)),
          neighbourReceiveType(fsgrid_detail::generateMPITypes<T>(storageSize, localSize, stencil, false)) {}
 
@@ -512,7 +514,7 @@ public:
 
       // Find the index in the task grid this Cell belongs to
       std::array<int32_t, 3> taskIndex;
-      for (int32_t i = 0; i < 3; i++) {
+      for (uint32_t i = 0; i < 3; i++) {
          int32_t n_per_task = globalSize[i] / numTasksPerDim[i];
          int32_t remainder = globalSize[i] % numTasksPerDim[i];
 
@@ -540,7 +542,7 @@ public:
 
       retVal.second = 0;
       int32_t stride = 1;
-      for (int32_t i = 0; i < 3; i++) {
+      for (uint32_t i = 0; i < 3; i++) {
          if (globalSize[i] <= 1) {
             // Collapsed dimension, doesn't contribute.
             retVal.second += 0;
@@ -679,7 +681,7 @@ public:
       std::array<MPI_Request, 27> receiveRequests;
       std::array<MPI_Request, 27> sendRequests;
 
-      for (int32_t i = 0; i < 27; i++) {
+      for (uint32_t i = 0; i < 27; i++) {
          receiveRequests[i] = MPI_REQUEST_NULL;
          sendRequests[i] = MPI_REQUEST_NULL;
       }
@@ -787,9 +789,9 @@ public:
       std::ios defaultState(nullptr);
       defaultState.copyfmt(ss);
 
-      auto pushContainerValues = [&ss, &defaultState](auto container, bool asByteStr = false, uint32_t nPerLine = 0,
+      auto pushContainerValues = [&ss, &defaultState](auto container, bool asByteStr = false, size_t nPerLine = 0,
                                                       uint32_t numTabs = 2) {
-         nPerLine = nPerLine == 0 ? container.size() : nPerLine;
+         nPerLine = nPerLine == 0ul ? container.size() : nPerLine;
          const uint32_t numBytes = sizeof(decltype(container[0]));
          if (asByteStr) {
             ss << std::hex << std::setfill('0');
@@ -962,8 +964,8 @@ public:
          defaultState.copyfmt(ss);
 
          auto pushContainerValues = [&ss, &defaultState, &newliner](auto container, bool asByteStr = false,
-                                                                    uint32_t nPerLine = 0, uint32_t numTabs = 2) {
-            nPerLine = nPerLine == 0 ? container.size() : nPerLine;
+                                                                    size_t nPerLine = 0, uint32_t numTabs = 2) {
+            nPerLine = nPerLine == 0ul ? container.size() : nPerLine;
             const uint32_t numBytes = sizeof(decltype(container[0]));
             if (asByteStr) {
                ss << std::hex << std::setfill('0') << std::uppercase;
@@ -1080,10 +1082,10 @@ public:
             continue;
          }
 
-         int numIntegers = 0;
-         int numAddresses = 0;
-         int numDataTypes = 0;
-         int combiner = 0;
+         int32_t numIntegers = 0;
+         int32_t numAddresses = 0;
+         int32_t numDataTypes = 0;
+         int32_t combiner = 0;
          FSGRID_MPI_CHECK(MPI_Type_get_envelope(mpiType, &numIntegers, &numAddresses, &numDataTypes, &combiner),
                           "Failed to get envelope for type ", mpiType);
 
@@ -1091,9 +1093,10 @@ public:
             continue;
          }
 
-         metadatas.push_back(MPITypeMetaData{combiner, std::vector<int>(numIntegers),
-                                             std::vector<MPI_Aint>(numAddresses), std::vector<MPITypeMetaData>()});
-         std::vector<MPI_Datatype> dataTypes(numDataTypes);
+         metadatas.push_back(MPITypeMetaData{combiner, std::vector<int>(static_cast<size_t>(numIntegers)),
+                                             std::vector<MPI_Aint>(static_cast<size_t>(numAddresses)),
+                                             std::vector<MPITypeMetaData>()});
+         std::vector<MPI_Datatype> dataTypes(static_cast<size_t>(static_cast<size_t>(numDataTypes)));
          FSGRID_MPI_CHECK(MPI_Type_get_contents(mpiType, numIntegers, numAddresses, numDataTypes,
                                                 metadatas.back().integers.data(), metadatas.back().addresses.data(),
                                                 dataTypes.data()),
