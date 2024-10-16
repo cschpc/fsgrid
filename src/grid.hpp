@@ -516,8 +516,8 @@ public:
       // Find the index in the task grid this Cell belongs to
       std::array<int32_t, 3> taskIndex;
       for (uint32_t i = 0; i < 3; i++) {
-         const int32_t n_per_task = globalSize[i] / numTasksPerDim[i];
-         const int32_t remainder = globalSize[i] % numTasksPerDim[i];
+         const int32_t n_per_task = static_cast<int32_t>(globalSize[i]) / numTasksPerDim[i];
+         const int32_t remainder = static_cast<int32_t>(globalSize[i]) % numTasksPerDim[i];
 
          if (cell[i] < remainder * (n_per_task + 1)) {
             taskIndex[i] = cell[i] / (n_per_task + 1);
@@ -540,8 +540,8 @@ public:
     * \param z The cell's task-local z coordinate
     */
    GlobalID globalIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
-             globalSize[0] * globalSize[1] * (z + localStart[2]);
+      return x + localStart[0] + static_cast<FsIndex_t>(globalSize[0]) * (y + localStart[1]) +
+             static_cast<FsIndex_t>(globalSize[0] * globalSize[1]) * (z + localStart[2]);
    }
 
    /*! Determine the cell's LocalID from its local x,y,z coordinates
@@ -585,7 +585,6 @@ public:
       return retval;
    }
 
-   // Test
    /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
     *
     * \param x x-Coordinate, in cells
