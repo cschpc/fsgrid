@@ -15,7 +15,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 include(CTest)
-add_subdirectory(tests)
 enable_testing()
 
 set(gcc "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU,LCC>")
@@ -40,3 +39,6 @@ add_compile_options(
     "$<${gcc}:${gcc_warn}>"
     "$<IF:${debug_gcc},${gcc_deb_opt},${gcc_rel_opt}>"
     )
+
+# This must be after the add_compile_options for it to have any effect
+add_subdirectory(tests)

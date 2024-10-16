@@ -122,7 +122,7 @@ TEST(FsGridTest, linearToZ) {
 }
 
 TEST(FsGridTest, xyzToLinearToxyz) {
-   for (int32_t i = 0; i < 27; i++) {
+   for (uint32_t i = 0; i < 27; i++) {
       const auto x = fsgrid_detail::linearToX(i);
       const auto y = fsgrid_detail::linearToY(i);
       const auto z = fsgrid_detail::linearToZ(i);
