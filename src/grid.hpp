@@ -205,7 +205,7 @@ static int32_t getCartesianRank(int32_t colourFs, int32_t colourAux, MPI_Comm co
 static std::array<Task_t, 3> getTaskPosition(MPI_Comm comm) {
    std::array<Task_t, 3> taskPos;
    const int rank = getCommRank(comm);
-   FSGRID_MPI_CHECK(MPI_Cart_coords(comm, rank, 3, taskPos.data()), "Rank ", rank,
+   FSGRID_MPI_CHECK(MPI_Cart_coords(comm, rank, taskPos.size(), taskPos.data()), "Rank ", rank,
                     " unable to determine own position in cartesian communicator when attempting to create FsGrid!");
    return taskPos;
 }
@@ -340,12 +340,13 @@ public:
                                              fsgrid_detail::getCommSize(parentComm),
                                              fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
              comm3d)),
-         taskPosition(fsgrid_detail::getTaskPosition(comm3d)),
-         localSize(fsgrid_detail::calculateLocalSize(globalSize, numTasksPerDim, taskPosition, rank, stencil)),
-         localStart(fsgrid_detail::calculateLocalStart(globalSize, numTasksPerDim, taskPosition)),
+         localSize(fsgrid_detail::calculateLocalSize(globalSize, numTasksPerDim, fsgrid_detail::getTaskPosition(comm3d),
+                                                     rank, stencil)),
+         localStart(
+             fsgrid_detail::calculateLocalStart(globalSize, numTasksPerDim, fsgrid_detail::getTaskPosition(comm3d))),
          storageSize(fsgrid_detail::calculateStorageSize(globalSize, localSize, stencil)),
-         neighbourIndexToRank(
-             fsgrid_detail::mapNeigbourIndexToRank(taskPosition, numTasksPerDim, periodic, comm3d, rank)),
+         neighbourIndexToRank(fsgrid_detail::mapNeigbourIndexToRank(fsgrid_detail::getTaskPosition(comm3d),
+                                                                    numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(fsgrid_detail::mapNeighbourRankToIndex(
              neighbourIndexToRank, fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)))),
          data(rank == -1 ? 0 : std::accumulate(storageSize.cbegin(), storageSize.cend(), 1, std::multiplies<>())),
@@ -369,6 +370,7 @@ public:
       if (comm3d != MPI_COMM_NULL)
          FSGRID_MPI_CHECK(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
    }
+
    // ============================
    // Data access functions
    // ============================
@@ -379,189 +381,7 @@ public:
       data = other.getData();
    }
 
-   /*! Returns the task responsible, and its localID for handling the cell with the given GlobalID
-    * \param id GlobalID of the cell for which task is to be determined
-    * \return a task for the grid's cartesian communicator
-    */
-   std::pair<int32_t, LocalID> getTaskForGlobalID(GlobalID id) {
-      // Transform globalID to global cell coordinate
-      std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
-
-      // Find the index in the task grid this Cell belongs to
-      std::array<int32_t, 3> taskIndex;
-      for (int32_t i = 0; i < 3; i++) {
-         int32_t n_per_task = globalSize[i] / numTasksPerDim[i];
-         int32_t remainder = globalSize[i] % numTasksPerDim[i];
-
-         if (cell[i] < remainder * (n_per_task + 1)) {
-            taskIndex[i] = cell[i] / (n_per_task + 1);
-         } else {
-            taskIndex[i] = remainder + (cell[i] - remainder * (n_per_task + 1)) / n_per_task;
-         }
-      }
-
-      // Get the task number from the communicator
-      std::pair<int32_t, LocalID> retVal;
-      FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &retVal.first),
-                       "Unable to find FsGrid rank for global ID ", id, "(coordinates [", cell[0], ", ", cell[1], ", ",
-                       cell[2], "])");
-
-      // Determine localID of that cell within the target task
-      std::array<FsIndex_t, 3> thatTasksStart;
-      std::array<FsIndex_t, 3> thatTaskStorageSize;
-      for (int32_t i = 0; i < 3; i++) {
-         thatTasksStart[i] = FsGridTools::calcLocalStart(globalSize[i], numTasksPerDim[i], taskIndex[i]);
-         thatTaskStorageSize[i] =
-             FsGridTools::calcLocalSize(globalSize[i], numTasksPerDim[i], taskIndex[i]) + 2 * stencil;
-      }
-
-      retVal.second = 0;
-      int32_t stride = 1;
-      for (int32_t i = 0; i < 3; i++) {
-         if (globalSize[i] <= 1) {
-            // Collapsed dimension, doesn't contribute.
-            retVal.second += 0;
-         } else {
-            retVal.second += stride * (cell[i] - thatTasksStart[i] + stencil);
-            stride *= thatTaskStorageSize[i];
-         }
-      }
-
-      return retVal;
-   }
-
-   /*! Transform global cell coordinates into the local domain.
-    * If the coordinates are out of bounds, (-1,-1,-1) is returned.
-    * \param x The cell's global x coordinate
-    * \param y The cell's global y coordinate
-    * \param z The cell's global z coordinate
-    */
-   std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) {
-      std::array<FsIndex_t, 3> retval;
-      retval[0] = (FsIndex_t)x - localStart[0];
-      retval[1] = (FsIndex_t)y - localStart[1];
-      retval[2] = (FsIndex_t)z - localStart[2];
-
-      if (retval[0] >= localSize[0] || retval[1] >= localSize[1] || retval[2] >= localSize[2] || retval[0] < 0 ||
-          retval[1] < 0 || retval[2] < 0) {
-         return {-1, -1, -1};
-      }
-
-      return retval;
-   }
-
-   /*! Determine the cell's GlobalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
-      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
-             globalSize[0] * globalSize[1] * (z + localStart[2]);
-   }
-
-   /*! Determine the cell's LocalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
-      LocalID index = 0;
-      if (globalSize[2] > 1) {
-         index += storageSize[0] * storageSize[1] * (stencil + z);
-      }
-      if (globalSize[1] > 1) {
-         index += storageSize[0] * (stencil + y);
-      }
-      if (globalSize[0] > 1) {
-         index += stencil + x;
-      }
-
-      return index;
-   }
-
-   /*! Perform ghost cell communication.
-    */
-   void updateGhostCells() {
-
-      if (rank == -1)
-         return;
-
-      // TODO, faster with simultaneous isends& ireceives?
-      std::array<MPI_Request, 27> receiveRequests;
-      std::array<MPI_Request, 27> sendRequests;
-
-      for (int32_t i = 0; i < 27; i++) {
-         receiveRequests[i] = MPI_REQUEST_NULL;
-         sendRequests[i] = MPI_REQUEST_NULL;
-      }
-
-      for (int32_t x = -1; x <= 1; x++) {
-         for (int32_t y = -1; y <= 1; y++) {
-            for (int32_t z = -1; z <= 1; z++) {
-               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
-               int32_t receiveId = (1 - x) * 9 + (1 - y) * 3 + (1 - z);
-               if (neighbourIndexToRank[receiveId] != MPI_PROC_NULL &&
-                   neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  FSGRID_MPI_CHECK(MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId],
-                                             neighbourIndexToRank[receiveId], shiftId, comm3d,
-                                             &(receiveRequests[shiftId])),
-                                   "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ",
-                                   neighbourIndexToRank[receiveId]);
-               }
-            }
-         }
-      }
-
-      for (int32_t x = -1; x <= 1; x++) {
-         for (int32_t y = -1; y <= 1; y++) {
-            for (int32_t z = -1; z <= 1; z++) {
-               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
-               int32_t sendId = shiftId;
-               if (neighbourIndexToRank[sendId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbourIndexToRank[sendId],
-                                             shiftId, comm3d, &(sendRequests[shiftId])),
-                                   "Rank ", rank, " failed to send data to neighbor ", sendId, " with rank ",
-                                   neighbourIndexToRank[sendId]);
-               }
-            }
-         }
-      }
-      FSGRID_MPI_CHECK(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
-                       "Synchronization at ghost cell update failed");
-      FSGRID_MPI_CHECK(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
-                       "Synchronization at ghost cell update failed");
-   }
-
-   /*! Get the size of the local domain handled by this grid.
-    */
-   std::array<FsIndex_t, 3>& getLocalSize() { return localSize; }
-
-   /*! Get the start coordinates of the local domain handled by this grid.
-    */
-   std::array<FsIndex_t, 3>& getLocalStart() { return localStart; }
-
-   /*! Get global size of the fsgrid domain
-    */
-   std::array<FsSize_t, 3>& getGlobalSize() { return globalSize; }
-
-   /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
-    *
-    * \param x x-Coordinate, in cells
-    * \param y y-Coordinate, in cells
-    * \param z z-Coordinate, in cells
-    *
-    * \return Global cell coordinates
-    */
-   std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
-      std::array<FsIndex_t, 3> retval;
-      retval[0] = localStart[0] + x;
-      retval[1] = localStart[1] + y;
-      retval[2] = localStart[2] + z;
-
-      return retval;
-   }
-
+   // TODO: test
    /*! Get a reference to the field data in a cell
     * \param x x-Coordinate, in cells
     * \param y y-Coordinate, in cells
@@ -678,6 +498,130 @@ public:
       return &data[id];
    }
 
+   // ============================
+   // Coordinate change functions
+   // ============================
+
+   /*! Returns the task responsible, and its localID for handling the cell with the given GlobalID
+    * \param id GlobalID of the cell for which task is to be determined
+    * \return a task for the grid's cartesian communicator
+    */
+   std::pair<int32_t, LocalID> getTaskForGlobalID(GlobalID id) {
+      // Transform globalID to global cell coordinate
+      std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
+
+      // Find the index in the task grid this Cell belongs to
+      std::array<int32_t, 3> taskIndex;
+      for (int32_t i = 0; i < 3; i++) {
+         int32_t n_per_task = globalSize[i] / numTasksPerDim[i];
+         int32_t remainder = globalSize[i] % numTasksPerDim[i];
+
+         if (cell[i] < remainder * (n_per_task + 1)) {
+            taskIndex[i] = cell[i] / (n_per_task + 1);
+         } else {
+            taskIndex[i] = remainder + (cell[i] - remainder * (n_per_task + 1)) / n_per_task;
+         }
+      }
+
+      // Get the task number from the communicator
+      std::pair<int32_t, LocalID> retVal;
+      FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &retVal.first),
+                       "Unable to find FsGrid rank for global ID ", id, "(coordinates [", cell[0], ", ", cell[1], ", ",
+                       cell[2], "])");
+
+      // Determine localID of that cell within the target task
+      std::array<FsIndex_t, 3> thatTasksStart;
+      std::array<FsIndex_t, 3> thatTaskStorageSize;
+      for (int32_t i = 0; i < 3; i++) {
+         thatTasksStart[i] = FsGridTools::calcLocalStart(globalSize[i], numTasksPerDim[i], taskIndex[i]);
+         thatTaskStorageSize[i] =
+             FsGridTools::calcLocalSize(globalSize[i], numTasksPerDim[i], taskIndex[i]) + 2 * stencil;
+      }
+
+      retVal.second = 0;
+      int32_t stride = 1;
+      for (int32_t i = 0; i < 3; i++) {
+         if (globalSize[i] <= 1) {
+            // Collapsed dimension, doesn't contribute.
+            retVal.second += 0;
+         } else {
+            retVal.second += stride * (cell[i] - thatTasksStart[i] + stencil);
+            stride *= thatTaskStorageSize[i];
+         }
+      }
+
+      return retVal;
+   }
+
+   /*! Transform global cell coordinates into the local domain.
+    * If the coordinates are out of bounds, (-1,-1,-1) is returned.
+    * \param x The cell's global x coordinate
+    * \param y The cell's global y coordinate
+    * \param z The cell's global z coordinate
+    */
+   std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) {
+      std::array<FsIndex_t, 3> retval;
+      retval[0] = (FsIndex_t)x - localStart[0];
+      retval[1] = (FsIndex_t)y - localStart[1];
+      retval[2] = (FsIndex_t)z - localStart[2];
+
+      if (retval[0] >= localSize[0] || retval[1] >= localSize[1] || retval[2] >= localSize[2] || retval[0] < 0 ||
+          retval[1] < 0 || retval[2] < 0) {
+         return {-1, -1, -1};
+      }
+
+      return retval;
+   }
+
+   // TODO rename to localToGlobal
+   // Test
+   /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
+    *
+    * \param x x-Coordinate, in cells
+    * \param y y-Coordinate, in cells
+    * \param z z-Coordinate, in cells
+    *
+    * \return Global cell coordinates
+    */
+   std::array<FsIndex_t, 3> getGlobalIndices(int64_t x, int64_t y, int64_t z) {
+      std::array<FsIndex_t, 3> retval;
+      retval[0] = localStart[0] + x;
+      retval[1] = localStart[1] + y;
+      retval[2] = localStart[2] + z;
+
+      return retval;
+   }
+
+   /*! Determine the cell's GlobalID from its local x,y,z coordinates
+    * \param x The cell's task-local x coordinate
+    * \param y The cell's task-local y coordinate
+    * \param z The cell's task-local z coordinate
+    */
+   GlobalID GlobalIDForCoords(int32_t x, int32_t y, int32_t z) {
+      return x + localStart[0] + globalSize[0] * (y + localStart[1]) +
+             globalSize[0] * globalSize[1] * (z + localStart[2]);
+   }
+
+   /*! Determine the cell's LocalID from its local x,y,z coordinates
+    * \param x The cell's task-local x coordinate
+    * \param y The cell's task-local y coordinate
+    * \param z The cell's task-local z coordinate
+    */
+   LocalID LocalIDForCoords(int32_t x, int32_t y, int32_t z) {
+      LocalID index = 0;
+      if (globalSize[2] > 1) {
+         index += storageSize[0] * storageSize[1] * (stencil + z);
+      }
+      if (globalSize[1] > 1) {
+         index += storageSize[0] * (stencil + y);
+      }
+      if (globalSize[0] > 1) {
+         index += stencil + x;
+      }
+
+      return index;
+   }
+
    /*! Get the physical coordinates in the global simulation space for
     * the given cell.
     *
@@ -694,6 +638,112 @@ public:
       return coords;
    }
 
+   // ============================
+   // Getters
+   // ============================
+
+   /*! Get the size of the local domain handled by this grid.
+    */
+   std::array<FsIndex_t, 3>& getLocalSize() { return localSize; }
+
+   /*! Get the start coordinates of the local domain handled by this grid.
+    */
+   std::array<FsIndex_t, 3>& getLocalStart() { return localStart; }
+
+   /*! Get global size of the fsgrid domain
+    */
+   std::array<FsSize_t, 3>& getGlobalSize() { return globalSize; }
+
+   /*! Get the rank of this CPU in the FsGrid communicator */
+   int32_t getRank() { return rank; }
+
+   /*! Get the number of ranks in the FsGrid communicator */
+   int32_t getSize() { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
+
+   /*! Get in which directions, if any, this grid is periodic */
+   std::array<bool, 3>& getPeriodic() { return periodic; }
+
+   /*! Get the decomposition array*/
+   std::array<Task_t, 3>& getDecomposition() { return numTasksPerDim; }
+
+   // ============================
+   // Misc functions
+   // ============================
+   /*! Perform ghost cell communication.
+    */
+   void updateGhostCells() {
+
+      if (rank == -1)
+         return;
+
+      // TODO, faster with simultaneous isends& ireceives?
+      std::array<MPI_Request, 27> receiveRequests;
+      std::array<MPI_Request, 27> sendRequests;
+
+      for (int32_t i = 0; i < 27; i++) {
+         receiveRequests[i] = MPI_REQUEST_NULL;
+         sendRequests[i] = MPI_REQUEST_NULL;
+      }
+
+      for (int32_t x = -1; x <= 1; x++) {
+         for (int32_t y = -1; y <= 1; y++) {
+            for (int32_t z = -1; z <= 1; z++) {
+               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
+               int32_t receiveId = (1 - x) * 9 + (1 - y) * 3 + (1 - z);
+               if (neighbourIndexToRank[receiveId] != MPI_PROC_NULL &&
+                   neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
+                  FSGRID_MPI_CHECK(MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId],
+                                             neighbourIndexToRank[receiveId], shiftId, comm3d,
+                                             &(receiveRequests[shiftId])),
+                                   "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ",
+                                   neighbourIndexToRank[receiveId]);
+               }
+            }
+         }
+      }
+
+      for (int32_t x = -1; x <= 1; x++) {
+         for (int32_t y = -1; y <= 1; y++) {
+            for (int32_t z = -1; z <= 1; z++) {
+               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
+               int32_t sendId = shiftId;
+               if (neighbourIndexToRank[sendId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
+                  FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbourIndexToRank[sendId],
+                                             shiftId, comm3d, &(sendRequests[shiftId])),
+                                   "Rank ", rank, " failed to send data to neighbor ", sendId, " with rank ",
+                                   neighbourIndexToRank[sendId]);
+               }
+            }
+         }
+      }
+      FSGRID_MPI_CHECK(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
+                       "Synchronization at ghost cell update failed");
+      FSGRID_MPI_CHECK(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
+                       "Synchronization at ghost cell update failed");
+   }
+
+   /*! Perform an MPI_Allreduce with this grid's internal communicator
+    * Function syntax is identical to MPI_Allreduce, except the final (communicator
+    * argument will not be needed) */
+   int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) {
+
+      // If a normal FS-rank
+      if (rank != -1) {
+         return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm3d);
+      }
+      // If a non-FS rank, no need to communicate
+      else {
+         int32_t datatypeSize;
+         MPI_Type_size(datatype, &datatypeSize);
+         for (int32_t i = 0; i < count * datatypeSize; ++i)
+            ((char*)recvbuf)[i] = ((char*)sendbuf)[i];
+         return MPI_ERR_RANK; // This is ok for a non-FS rank
+      }
+   }
+
+   // ============================
+   // Debug functions
+   // ============================
    /*! Debugging output helper function. Allows for nicely formatted printing
     * of grid contents. Since the grid data format is varying, the actual
     * printing should be done in a lambda passed to this function. Example usage
@@ -732,37 +782,6 @@ public:
          std::cerr << " - - - - - - - - " << std::endl;
       }
    }
-
-   /*! Get the rank of this CPU in the FsGrid communicator */
-   int32_t getRank() { return rank; }
-
-   /*! Get the number of ranks in the FsGrid communicator */
-   int32_t getSize() { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
-
-   /*! Get in which directions, if any, this grid is periodic */
-   std::array<bool, 3>& getPeriodic() { return periodic; }
-
-   /*! Perform an MPI_Allreduce with this grid's internal communicator
-    * Function syntax is identical to MPI_Allreduce, except the final (communicator
-    * argument will not be needed) */
-   int32_t Allreduce(void* sendbuf, void* recvbuf, int32_t count, MPI_Datatype datatype, MPI_Op op) {
-
-      // If a normal FS-rank
-      if (rank != -1) {
-         return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm3d);
-      }
-      // If a non-FS rank, no need to communicate
-      else {
-         int32_t datatypeSize;
-         MPI_Type_size(datatype, &datatypeSize);
-         for (int32_t i = 0; i < count * datatypeSize; ++i)
-            ((char*)recvbuf)[i] = ((char*)sendbuf)[i];
-         return MPI_ERR_RANK; // This is ok for a non-FS rank
-      }
-   }
-
-   /*! Get the decomposition array*/
-   std::array<Task_t, 3>& getDecomposition() { return numTasksPerDim; }
 
    // Debug helper types, can be removed once fsgrid is split to different structs
    std::string display() const {
@@ -895,9 +914,6 @@ public:
       ss << "\n\t]";
       ss << "\n\tntasksPerDim: [\n\t\t";
       pushContainerValues(numTasksPerDim);
-      ss << "\n\t]";
-      ss << "\n\ttaskPosition: [\n\t\t";
-      pushContainerValues(taskPosition);
       ss << "\n\t]";
       ss << "\n\tperiodic: [\n\t\t";
       pushContainerValues(periodic);
@@ -1093,6 +1109,9 @@ public:
       return metadatas;
    }
 
+   // ============================
+   // Public variables... (not even initialized in the constructor)
+   // ============================
    /*! Physical grid spacing and physical coordinate space start.
     */
    double DX = 0.0;
@@ -1111,8 +1130,6 @@ private:
    MPI_Comm comm3d = MPI_COMM_NULL;
    //!< This task's rank in the communicator
    int32_t rank = 0;
-   //!< This task's position in the 3d task grid
-   std::array<Task_t, 3> taskPosition = {};
    //!< Local size of simulation space handled by this task (without ghost cells)
    std::array<FsIndex_t, 3> localSize = {};
    //!< Offset of the local coordinate system against the global one
