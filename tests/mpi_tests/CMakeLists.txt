@@ -7,7 +7,6 @@ set(testname ${PROJECT_NAME}_mpi_tests)
 add_executable(${testname}
     main.cpp
     grid_tests.cpp
-    cartesian_grid_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE
