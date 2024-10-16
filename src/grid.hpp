@@ -509,15 +509,15 @@ public:
     * \param id GlobalID of the cell for which task is to be determined
     * \return a task for the grid's cartesian communicator
     */
-   int32_t getTaskForGlobalID(GlobalID id) const {
+   Task_t getTaskForGlobalID(GlobalID id) const {
       // Transform globalID to global cell coordinate
       const std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
 
       // Find the index in the task grid this Cell belongs to
-      std::array<int32_t, 3> taskIndex;
+      std::array<FsIndex_t, 3> taskIndex;
       for (uint32_t i = 0; i < 3; i++) {
-         const int32_t n_per_task = static_cast<int32_t>(globalSize[i]) / numTasksPerDim[i];
-         const int32_t remainder = static_cast<int32_t>(globalSize[i]) % numTasksPerDim[i];
+         const FsIndex_t n_per_task = static_cast<FsIndex_t>(globalSize[i] / static_cast<FsSize_t>(numTasksPerDim[i]));
+         const FsIndex_t remainder = static_cast<FsIndex_t>(globalSize[i] % static_cast<FsSize_t>(numTasksPerDim[i]));
 
          if (cell[i] < remainder * (n_per_task + 1)) {
             taskIndex[i] = cell[i] / (n_per_task + 1);
@@ -527,7 +527,7 @@ public:
       }
 
       // Get the task number from the communicator
-      int32_t taskID = -1;
+      Task_t taskID = -1;
       FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &taskID), "Unable to find FsGrid rank for global ID ",
                        id, "(coordinates [", cell[0], ", ", cell[1], ", ", cell[2], "])");
 
@@ -540,8 +540,11 @@ public:
     * \param z The cell's task-local z coordinate
     */
    GlobalID globalIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      return x + localStart[0] + static_cast<FsIndex_t>(globalSize[0]) * (y + localStart[1]) +
-             static_cast<FsIndex_t>(globalSize[0] * globalSize[1]) * (z + localStart[2]);
+      // Perform casts to avoid overflow
+      const std::array<FsSize_t, 3> global = localToGlobal(x, y, z);
+      return global[0] + static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(global[1]) +
+             static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(globalSize[1]) *
+                 static_cast<GlobalID>(global[2]);
    }
 
    /*! Determine the cell's LocalID from its local x,y,z coordinates
@@ -570,19 +573,29 @@ public:
     * \param y The cell's global y coordinate
     * \param z The cell's global z coordinate
     */
-   std::array<FsIndex_t, 3> globalToLocal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      const std::array<FsIndex_t, 3> retval{
-          (FsIndex_t)x - localStart[0],
-          (FsIndex_t)y - localStart[1],
-          (FsIndex_t)z - localStart[2],
-      };
+   std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) const {
+      // Perform this check before doing the subtraction to avoid cases of underflow and overflow
+      // Particularly for the first three checks:
+      // - casting the localStart to unsigned and then doing the subtraction might cause underflow
+      // - casting the global coordinate to signed might overflow, due to global being too large to fit to the signed
+      // type
+      bool outOfBounds = x < static_cast<FsSize_t>(localStart[0]);
+      outOfBounds |= y < static_cast<FsSize_t>(localStart[1]);
+      outOfBounds |= z < static_cast<FsSize_t>(localStart[2]);
+      outOfBounds |= x >= static_cast<FsSize_t>(localSize[0]) + static_cast<FsSize_t>(localStart[0]);
+      outOfBounds |= y >= static_cast<FsSize_t>(localSize[1]) + static_cast<FsSize_t>(localStart[1]);
+      outOfBounds |= z >= static_cast<FsSize_t>(localSize[2]) + static_cast<FsSize_t>(localStart[2]);
 
-      if (retval[0] >= localSize[0] || retval[1] >= localSize[1] || retval[2] >= localSize[2] || retval[0] < 0 ||
-          retval[1] < 0 || retval[2] < 0) {
+      if (outOfBounds) {
          return {-1, -1, -1};
+      } else {
+         // This neither over nor underflows as per the checks above
+         return {
+             static_cast<FsIndex_t>(x - static_cast<FsSize_t>(localStart[0])),
+             static_cast<FsIndex_t>(y - static_cast<FsSize_t>(localStart[1])),
+             static_cast<FsIndex_t>(z - static_cast<FsSize_t>(localStart[2])),
+         };
       }
-
-      return retval;
    }
 
    /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
@@ -593,11 +606,12 @@ public:
     *
     * \return Global cell coordinates
     */
-   std::array<FsIndex_t, 3> localToGlobal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
+   std::array<FsSize_t, 3> localToGlobal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
+      // Cast both before adding to avoid overflow
       return {
-          localStart[0] + x,
-          localStart[1] + y,
-          localStart[2] + z,
+          static_cast<FsSize_t>(localStart[0]) + static_cast<FsSize_t>(x),
+          static_cast<FsSize_t>(localStart[1]) + static_cast<FsSize_t>(y),
+          static_cast<FsSize_t>(localStart[2]) + static_cast<FsSize_t>(z),
       };
    }
 
@@ -636,10 +650,10 @@ public:
    const std::array<FsSize_t, 3>& getGlobalSize() const { return globalSize; }
 
    /*! Get the rank of this CPU in the FsGrid communicator */
-   int32_t getRank() const { return rank; }
+   Task_t getRank() const { return rank; }
 
    /*! Get the number of ranks in the FsGrid communicator */
-   int32_t getSize() const { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
+   Task_t getSize() const { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
 
    /*! Get in which directions, if any, this grid is periodic */
    std::array<bool, 3>& getPeriodic() { return periodic; }
