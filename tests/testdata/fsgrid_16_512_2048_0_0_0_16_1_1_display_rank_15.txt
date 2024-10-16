@@ -18,9 +18,6 @@
 	ntasksPerDim: [
 		16, 1, 1
 	]
-	taskPosition: [
-		15, 0, 0
-	]
 	periodic: [
 		0, 0, 0
 	]
