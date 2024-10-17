@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -323,8 +324,10 @@ public:
     * \param periodic An array specifying, for each dimension, whether it is to be treated as periodic.
     */
    FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parentComm, std::array<bool, 3> periodic,
+          const std::array<double, 3>& gridSpacing, const std::array<double, 3>& physicalGlobalStart,
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
-       : globalSize(globalSize),
+       : DX(gridSpacing[0]), DY(gridSpacing[1]), DZ(gridSpacing[2]), physicalGlobalStart(physicalGlobalStart),
+         globalSize(globalSize),
          numTasksPerDim(fsgrid_detail::computeNumTasksPerDim(
              globalSize, decomposition, fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)), stencil)),
          periodic(periodic),
@@ -597,6 +600,35 @@ public:
           physicalGlobalStart[0] + (localStart[0] + x) * DX,
           physicalGlobalStart[1] + (localStart[1] + y) * DY,
           physicalGlobalStart[2] + (localStart[2] + z) * DZ,
+      };
+   }
+
+   /*! Get the global cell coordinates for the given physical coordinates.
+    *
+    * \param x physical x-Coordinate
+    * \param y physical y-Coordinate
+    * \param z physical z-Coordinate
+    */
+   std::array<FsSize_t, 3> physicalToGlobal(double x, double y, double z) const {
+      return {
+          static_cast<FsSize_t>(floor((x - physicalGlobalStart[0]) / DX)),
+          static_cast<FsSize_t>(floor((y - physicalGlobalStart[1]) / DY)),
+          static_cast<FsSize_t>(floor((z - physicalGlobalStart[2]) / DZ)),
+      };
+   }
+
+   /*! Get the (fractional) global cell coordinates for the given physical coordinates.
+    *
+    * \param x physical x-Coordinate
+    * \param y physical y-Coordinate
+    * \param z physical z-Coordinate
+    */
+   std::array<double, 3> physicalToFractionalGlobal(double x, double y, double z) const {
+      const auto global = physicalToGlobal(x, y, z);
+      return {
+          (x - physicalGlobalStart[0]) / DX - global[0],
+          (y - physicalGlobalStart[1]) / DY - global[1],
+          (z - physicalGlobalStart[2]) / DZ - global[2],
       };
    }
 
@@ -1109,16 +1141,17 @@ public:
    }
 
    // ============================
-   // Public variables... (not even initialized in the constructor)
+   // Public variables (TODO: move to private)
    // ============================
-   /*! Physical grid spacing and physical coordinate space start.
+   /*! Physical grid spacing
     */
-   double DX = 0.0;
-   double DY = 0.0;
-   double DZ = 0.0;
-   std::array<double, 3> physicalGlobalStart = {};
+   const double DX = 0.0;
+   const double DY = 0.0;
+   const double DZ = 0.0;
 
 private:
+   //!< Physical coordinate space start.
+   const std::array<double, 3> physicalGlobalStart = {};
    //!< Global size of the simulation space, in cells
    std::array<FsSize_t, 3> globalSize = {};
    //!< Number of tasks in each direction
