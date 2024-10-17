@@ -638,17 +638,14 @@ public:
 
    /*! Get the size of the local domain handled by this grid.
     */
-   std::array<FsIndex_t, 3>& getLocalSize() { return localSize; }
    const std::array<FsIndex_t, 3>& getLocalSize() const { return localSize; }
 
    /*! Get the start coordinates of the local domain handled by this grid.
     */
-   std::array<FsIndex_t, 3>& getLocalStart() { return localStart; }
    const std::array<FsIndex_t, 3>& getLocalStart() const { return localStart; }
 
    /*! Get global size of the fsgrid domain
     */
-   std::array<FsSize_t, 3>& getGlobalSize() { return globalSize; }
    const std::array<FsSize_t, 3>& getGlobalSize() const { return globalSize; }
 
    /*! Get the rank of this CPU in the FsGrid communicator */
@@ -658,11 +655,9 @@ public:
    Task_t getSize() const { return numTasksPerDim[0] * numTasksPerDim[1] * numTasksPerDim[2]; }
 
    /*! Get in which directions, if any, this grid is periodic */
-   std::array<bool, 3>& getPeriodic() { return periodic; }
    const std::array<bool, 3>& getPeriodic() const { return periodic; }
 
    /*! Get the decomposition array*/
-   std::array<Task_t, 3>& getDecomposition() { return numTasksPerDim; }
    const std::array<Task_t, 3>& getDecomposition() const { return numTasksPerDim; }
 
    // ============================
@@ -1153,30 +1148,30 @@ private:
    //!< Physical coordinate space start.
    const std::array<double, 3> physicalGlobalStart = {};
    //!< Global size of the simulation space, in cells
-   std::array<FsSize_t, 3> globalSize = {};
+   const std::array<FsSize_t, 3> globalSize = {};
    //!< Number of tasks in each direction
-   std::array<Task_t, 3> numTasksPerDim = {};
+   const std::array<Task_t, 3> numTasksPerDim = {};
    //!< Information about whether a given direction is periodic
-   std::array<bool, 3> periodic = {};
+   const std::array<bool, 3> periodic = {};
    //! MPI Cartesian communicator used in this grid
    MPI_Comm comm3d = MPI_COMM_NULL;
    //!< This task's rank in the communicator
-   int32_t rank = 0;
+   const int32_t rank = 0;
    //!< Local size of simulation space handled by this task (without ghost cells)
-   std::array<FsIndex_t, 3> localSize = {};
+   const std::array<FsIndex_t, 3> localSize = {};
    //!< Offset of the local coordinate system against the global one
-   std::array<FsIndex_t, 3> localStart = {};
+   const std::array<FsIndex_t, 3> localStart = {};
    //!< Local size of simulation space handled by this task (including ghost cells)
-   std::array<FsIndex_t, 3> storageSize = {};
+   const std::array<FsIndex_t, 3> storageSize = {};
    //!< Lookup table from index to rank in the neighbour array (includes self)
-   std::array<int32_t, 27> neighbourIndexToRank = {
+   const std::array<int32_t, 27> neighbourIndexToRank = {
        MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL,
        MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL,
        MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL,
        MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL, MPI_PROC_NULL,
    };
    //!< Lookup table from rank to index in the neighbour array
-   std::vector<char> neighbourRankToIndex = {};
+   const std::vector<char> neighbourRankToIndex = {};
    //! Actual storage of field data
    std::vector<T> data = {};
    //!< Datatype for sending data
