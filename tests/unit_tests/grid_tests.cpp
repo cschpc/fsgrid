@@ -130,13 +130,13 @@ TEST(FsGridTest, xyzToLinearToxyz) {
    }
 }
 
-TEST(FsGridTest, computeColorFs) {
+TEST(FsGridTest, computeColourFs) {
    constexpr int32_t numRanks = 666;
    for (int32_t i = 0; i < numRanks; i++) {
-      ASSERT_EQ(fsgrid_detail::computeColorFs(i, numRanks), 1);
+      ASSERT_EQ(fsgrid_detail::computeColourFs(i, numRanks), 1);
    }
 
-   ASSERT_EQ(fsgrid_detail::computeColorFs(numRanks, numRanks), MPI_UNDEFINED);
+   ASSERT_EQ(fsgrid_detail::computeColourFs(numRanks, numRanks), MPI_UNDEFINED);
 }
 
 TEST(FsGridTest, computeColorAux1) {
