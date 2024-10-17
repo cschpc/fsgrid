@@ -97,11 +97,11 @@ static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::arra
 
 //! Helper function to optimize decomposition of this grid over the given number of tasks
 static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& globalSize, Task_t nProcs,
-                                                        int32_t stencilSize = 1) {
+                                                        int32_t numGhostCells = 1) {
    const std::array minDomainSize = {
-       globalSize[0] == 1 ? 1 : stencilSize,
-       globalSize[1] == 1 ? 1 : stencilSize,
-       globalSize[2] == 1 ? 1 : stencilSize,
+       globalSize[0] == 1 ? 1 : numGhostCells,
+       globalSize[1] == 1 ? 1 : numGhostCells,
+       globalSize[2] == 1 ? 1 : numGhostCells,
    };
    const std::array maxDomainSize = {
        std::min(nProcs, static_cast<Task_t>(globalSize[0] / static_cast<FsSize_t>(minDomainSize[0]))),
