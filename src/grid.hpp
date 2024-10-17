@@ -384,6 +384,18 @@ public:
       data = other.getData();
    }
 
+   bool localIdInBounds(LocalID id) const { return 0 <= id && (size_t)id < data.size(); }
+
+   T* get(LocalID id) {
+      if (!localIdInBounds(id)) {
+         std::cerr << "Out-of-bounds access in FsGrid::get!" << std::endl
+                   << "(LocalID = " << id << ", but storage space is " << data.size() << ". Expect weirdness."
+                   << std::endl;
+         return NULL;
+      }
+      return &data[id];
+   }
+
    // TODO: test
    /*! Get a reference to the field data in a cell
     * \param x x-Coordinate, in cells
@@ -486,53 +498,13 @@ public:
          }
          // Otherwise we return the ghost cell
       }
-      LocalID index = localIDFromLocalCoordinates(x, y, z);
 
-      return &data[index];
-   }
-
-   T* get(LocalID id) {
-      if (id < 0 || (size_t)id > data.size()) {
-         std::cerr << "Out-of-bounds access in FsGrid::get!" << std::endl
-                   << "(LocalID = " << id << ", but storage space is " << data.size() << ". Expect weirdness."
-                   << std::endl;
-         return NULL;
-      }
-      return &data[id];
+      return get(localIDFromLocalCoordinates(x, y, z));
    }
 
    // ============================
    // Coordinate change functions
    // ============================
-
-   /*! Returns the task responsible for handling the cell with the given GlobalID
-    * \param id GlobalID of the cell for which task is to be determined
-    * \return a task for the grid's cartesian communicator
-    */
-   Task_t getTaskForGlobalID(GlobalID id) const {
-      // Transform globalID to global cell coordinate
-      const std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
-
-      // Find the index in the task grid this Cell belongs to
-      std::array<FsIndex_t, 3> taskIndex;
-      for (uint32_t i = 0; i < 3; i++) {
-         const FsIndex_t n_per_task = static_cast<FsIndex_t>(globalSize[i] / static_cast<FsSize_t>(numTasksPerDim[i]));
-         const FsIndex_t remainder = static_cast<FsIndex_t>(globalSize[i] % static_cast<FsSize_t>(numTasksPerDim[i]));
-
-         if (cell[i] < remainder * (n_per_task + 1)) {
-            taskIndex[i] = cell[i] / (n_per_task + 1);
-         } else {
-            taskIndex[i] = remainder + (cell[i] - remainder * (n_per_task + 1)) / n_per_task;
-         }
-      }
-
-      // Get the task number from the communicator
-      Task_t taskID = -1;
-      FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &taskID), "Unable to find FsGrid rank for global ID ",
-                       id, "(coordinates [", cell[0], ", ", cell[1], ", ", cell[2], "])");
-
-      return taskID;
-   }
 
    /*! Determine the cell's GlobalID from its local x,y,z coordinates
     * \param x The cell's task-local x coordinate
@@ -542,9 +514,11 @@ public:
    GlobalID globalIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       // Perform casts to avoid overflow
       const std::array<FsSize_t, 3> global = localToGlobal(x, y, z);
-      return global[0] + static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(global[1]) +
-             static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(globalSize[1]) *
-                 static_cast<GlobalID>(global[2]);
+      const auto xcontrib = global[0];
+      const auto ycontrib = static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(global[1]);
+      const auto zcontrib = static_cast<GlobalID>(globalSize[0]) * static_cast<GlobalID>(globalSize[1]) *
+                            static_cast<GlobalID>(global[2]);
+      return xcontrib + ycontrib + zcontrib;
    }
 
    /*! Determine the cell's LocalID from its local x,y,z coordinates
@@ -553,18 +527,14 @@ public:
     * \param z The cell's task-local z coordinate
     */
    LocalID localIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      LocalID index = 0;
-      if (globalSize[2] > 1) {
-         index += storageSize[0] * storageSize[1] * (stencil + z);
-      }
-      if (globalSize[1] > 1) {
-         index += storageSize[0] * (stencil + y);
-      }
-      if (globalSize[0] > 1) {
-         index += stencil + x;
-      }
+      // Perform casts to avoid overflow
+      const auto xcontrib = static_cast<LocalID>(globalSize[0] > 1) * static_cast<LocalID>(stencil + x);
+      const auto ycontrib = static_cast<LocalID>(globalSize[1] > 1) * static_cast<LocalID>(storageSize[0]) *
+                            static_cast<LocalID>(stencil + y);
+      const auto zcontrib = static_cast<LocalID>(globalSize[2] > 1) * static_cast<LocalID>(storageSize[0]) *
+                            static_cast<LocalID>(storageSize[1]) * static_cast<LocalID>(stencil + z);
 
-      return index;
+      return xcontrib + ycontrib + zcontrib;
    }
 
    /*! Transform global cell coordinates into the local domain.
@@ -664,7 +634,7 @@ public:
    const std::array<Task_t, 3>& getDecomposition() const { return numTasksPerDim; }
 
    // ============================
-   // Misc functions
+   // MPI functions
    // ============================
    /*! Perform ghost cell communication.
     */
@@ -735,6 +705,35 @@ public:
             ((char*)recvbuf)[i] = ((char*)sendbuf)[i];
          return MPI_ERR_RANK; // This is ok for a non-FS rank
       }
+   }
+
+   /*! Returns the task responsible for handling the cell with the given GlobalID
+    * \param id GlobalID of the cell for which task is to be determined
+    * \return a task for the grid's cartesian communicator
+    */
+   Task_t getTaskForGlobalID(GlobalID id) const {
+      // Transform globalID to global cell coordinate
+      const std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
+
+      // Find the index in the task grid this Cell belongs to
+      std::array<FsIndex_t, 3> taskIndex;
+      for (uint32_t i = 0; i < 3; i++) {
+         const FsIndex_t n_per_task = static_cast<FsIndex_t>(globalSize[i] / static_cast<FsSize_t>(numTasksPerDim[i]));
+         const FsIndex_t remainder = static_cast<FsIndex_t>(globalSize[i] % static_cast<FsSize_t>(numTasksPerDim[i]));
+
+         if (cell[i] < remainder * (n_per_task + 1)) {
+            taskIndex[i] = cell[i] / (n_per_task + 1);
+         } else {
+            taskIndex[i] = remainder + (cell[i] - remainder * (n_per_task + 1)) / n_per_task;
+         }
+      }
+
+      // Get the task number from the communicator
+      Task_t taskID = -1;
+      FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &taskID), "Unable to find FsGrid rank for global ID ",
+                       id, "(coordinates [", cell[0], ", ", cell[1], ", ", cell[2], "])");
+
+      return taskID;
    }
 
    // ============================

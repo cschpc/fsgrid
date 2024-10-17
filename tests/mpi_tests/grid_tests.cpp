@@ -194,3 +194,20 @@ TEST(FsGridTest, myGlobalIDCorrespondsToMyTask) {
       }
    }
 }
+
+TEST(FsGridTest, localIdInBounds) {
+   const std::array<FsGridTools::FsSize_t, 3> globalSize{647, 1, 666};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, false, true};
+
+   const auto grid = FsGrid<std::array<double, 50>, 1>(globalSize, parentComm, periodic);
+   const auto localSize = grid.getLocalSize();
+   for (int32_t x = 0; x < localSize[0]; x++) {
+      for (int32_t y = 0; y < localSize[1]; y++) {
+         for (int32_t z = 0; z < localSize[2]; z++) {
+            const auto lid = grid.localIDFromLocalCoordinates(x, y, z);
+            ASSERT_TRUE(grid.localIdInBounds(lid));
+         }
+      }
+   }
+}
