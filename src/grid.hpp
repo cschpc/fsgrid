@@ -636,6 +636,9 @@ public:
    // ============================
    // MPI functions
    // ============================
+
+   // These functions could be changed to static functions in a namespace that take technical grid and data pointer as
+   // argument
    /*! Perform ghost cell communication.
     */
    void updateGhostCells() {
