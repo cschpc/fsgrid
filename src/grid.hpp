@@ -324,10 +324,9 @@ public:
     * \param periodic An array specifying, for each dimension, whether it is to be treated as periodic.
     */
    FsGrid(std::array<FsSize_t, 3> globalSize, MPI_Comm parentComm, std::array<bool, 3> periodic,
-          const std::array<double, 3>& gridSpacing, const std::array<double, 3>& physicalGlobalStart,
+          const std::array<double, 3>& physicalGridSpacing, const std::array<double, 3>& physicalGlobalStart,
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
-       : DX(gridSpacing[0]), DY(gridSpacing[1]), DZ(gridSpacing[2]), physicalGlobalStart(physicalGlobalStart),
-         globalSize(globalSize),
+       : physicalGridSpacing(physicalGridSpacing), physicalGlobalStart(physicalGlobalStart), globalSize(globalSize),
          numTasksPerDim(fsgrid_detail::computeNumTasksPerDim(
              globalSize, decomposition, fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)), stencil)),
          periodic(periodic),
@@ -597,9 +596,9 @@ public:
     */
    std::array<double, 3> getPhysicalCoords(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
       return {
-          physicalGlobalStart[0] + (localStart[0] + x) * DX,
-          physicalGlobalStart[1] + (localStart[1] + y) * DY,
-          physicalGlobalStart[2] + (localStart[2] + z) * DZ,
+          physicalGlobalStart[0] + (localStart[0] + x) * physicalGridSpacing[0],
+          physicalGlobalStart[1] + (localStart[1] + y) * physicalGridSpacing[1],
+          physicalGlobalStart[2] + (localStart[2] + z) * physicalGridSpacing[2],
       };
    }
 
@@ -611,9 +610,9 @@ public:
     */
    std::array<FsSize_t, 3> physicalToGlobal(double x, double y, double z) const {
       return {
-          static_cast<FsSize_t>(floor((x - physicalGlobalStart[0]) / DX)),
-          static_cast<FsSize_t>(floor((y - physicalGlobalStart[1]) / DY)),
-          static_cast<FsSize_t>(floor((z - physicalGlobalStart[2]) / DZ)),
+          static_cast<FsSize_t>(floor((x - physicalGlobalStart[0]) / physicalGridSpacing[0])),
+          static_cast<FsSize_t>(floor((y - physicalGlobalStart[1]) / physicalGridSpacing[1])),
+          static_cast<FsSize_t>(floor((z - physicalGlobalStart[2]) / physicalGridSpacing[2])),
       };
    }
 
@@ -626,9 +625,9 @@ public:
    std::array<double, 3> physicalToFractionalGlobal(double x, double y, double z) const {
       const auto global = physicalToGlobal(x, y, z);
       return {
-          (x - physicalGlobalStart[0]) / DX - global[0],
-          (y - physicalGlobalStart[1]) / DY - global[1],
-          (z - physicalGlobalStart[2]) / DZ - global[2],
+          (x - physicalGlobalStart[0]) / physicalGridSpacing[0] - global[0],
+          (y - physicalGlobalStart[1]) / physicalGridSpacing[1] - global[1],
+          (z - physicalGlobalStart[2]) / physicalGridSpacing[2] - global[2],
       };
    }
 
@@ -659,6 +658,9 @@ public:
 
    /*! Get the decomposition array*/
    const std::array<Task_t, 3>& getDecomposition() const { return numTasksPerDim; }
+
+   /*! Get the physical grid spacing array*/
+   const std::array<double, 3>& getGridSpacing() const { return physicalGridSpacing; }
 
    // ============================
    // MPI functions
@@ -1138,13 +1140,10 @@ public:
    // ============================
    // Public variables (TODO: move to private)
    // ============================
-   /*! Physical grid spacing
-    */
-   const double DX = 0.0;
-   const double DY = 0.0;
-   const double DZ = 0.0;
 
 private:
+   //!< Physical grid spacing
+   const std::array<double, 3> physicalGridSpacing = {};
    //!< Physical coordinate space start.
    const std::array<double, 3> physicalGlobalStart = {};
    //!< Global size of the simulation space, in cells
