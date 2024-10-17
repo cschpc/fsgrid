@@ -25,7 +25,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -130,9 +129,23 @@ static int32_t getCommSize(MPI_Comm parentComm) {
    return parentCommSize;
 }
 
-static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, int32_t colourFs, int32_t colourAux,
-                                            int32_t parentRank, const std::array<Task_t, 3>& numTasksPerDim,
+constexpr static int32_t computeColourFs(int32_t parentRank, int32_t numRanks) {
+   return (parentRank < numRanks) ? 1 : MPI_UNDEFINED;
+}
+
+constexpr static int32_t computeColourAux(int32_t parentRank, int32_t parentCommSize, int32_t numRanks) {
+   return (parentRank > (parentCommSize - 1) % numRanks) ? (parentRank - (parentCommSize % numRanks)) / numRanks
+                                                         : MPI_UNDEFINED;
+}
+
+static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, const std::array<Task_t, 3>& numTasksPerDim,
                                             const std::array<bool, 3>& isPeriodic) {
+   const auto parentRank = getCommRank(parentComm);
+   const auto parentSize = getCommSize(parentComm);
+   const auto numFsRanks = getFSCommSize(parentSize);
+   const auto colourFs = computeColourFs(parentRank, numFsRanks);
+   const auto colourAux = computeColourAux(parentRank, parentSize, numFsRanks);
+
    MPI_Comm comm;
    if (colourFs != MPI_UNDEFINED) {
       FSGRID_MPI_CHECK(MPI_Comm_split(parentComm, colourFs, parentRank, &comm),
@@ -154,8 +167,12 @@ static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, int32_t colourF
    return comm3d;
 }
 
-static int32_t getCartesianRank(int32_t colourFs, MPI_Comm comm) {
-   return colourFs != MPI_UNDEFINED ? getCommRank(comm) : -1;
+static int32_t getCartesianRank(MPI_Comm parentComm, MPI_Comm cartesianComm) {
+   const auto parentRank = getCommRank(parentComm);
+   const auto parentSize = getCommSize(parentComm);
+   const auto numFsRanks = getFSCommSize(parentSize);
+   const auto colourFs = computeColourFs(parentRank, numFsRanks);
+   return colourFs != MPI_UNDEFINED ? getCommRank(cartesianComm) : -1;
 }
 
 static std::array<int32_t, 3> getTaskPosition(MPI_Comm comm) {
@@ -164,15 +181,6 @@ static std::array<int32_t, 3> getTaskPosition(MPI_Comm comm) {
    FSGRID_MPI_CHECK(MPI_Cart_coords(comm, rank, taskPos.size(), taskPos.data()), "Rank ", rank,
                     " unable to determine own position in cartesian communicator when attempting to create FsGrid!");
    return taskPos;
-}
-
-constexpr static int32_t computeColorFs(int32_t parentRank, int32_t numRanks) {
-   return (parentRank < numRanks) ? 1 : MPI_UNDEFINED;
-}
-
-constexpr static int32_t computeColourAux(int32_t parentRank, int32_t parentCommSize, int32_t numRanks) {
-   return (parentRank > (parentCommSize - 1) % numRanks) ? (parentRank - (parentCommSize % numRanks)) / numRanks
-                                                         : MPI_UNDEFINED;
 }
 
 template <typename T>
@@ -236,7 +244,6 @@ static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t,
 
    return types;
 }
-
 } // namespace fsgrid_detail
 
 /*! Simple cartesian, non-loadbalancing MPI Grid for use with the fieldsolver
@@ -262,23 +269,14 @@ public:
           const std::array<Task_t, 3>& decomposition = {0, 0, 0})
        : comm3d(fsgrid_detail::createCartesianCommunicator(
              parentComm,
-             fsgrid_detail::computeColorFs(fsgrid_detail::getCommRank(parentComm),
-                                           fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
-             fsgrid_detail::computeColourAux(fsgrid_detail::getCommRank(parentComm),
-                                             fsgrid_detail::getCommSize(parentComm),
-                                             fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
-             fsgrid_detail::getCommRank(parentComm),
              fsgrid_detail::computeNumTasksPerDim(globalSize, decomposition,
                                                   fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)),
                                                   stencil),
              periodic)),
-         rank(fsgrid_detail::getCartesianRank(
-             fsgrid_detail::computeColorFs(fsgrid_detail::getCommRank(parentComm),
-                                           fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm))),
-             comm3d)),
+         rank(fsgrid_detail::getCartesianRank(parentComm, comm3d)),
          coordinates(physicalGridSpacing, physicalGlobalStart, globalSize, periodic, decomposition,
                      fsgrid_detail::getTaskPosition(comm3d),
-                     fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)), rank, stencil),
+                     fsgrid_detail::getFSCommSize(fsgrid_detail::getCommSize(parentComm)), stencil),
          neighbourIndexToRank(fsgrid_detail::mapNeigbourIndexToRank(
              fsgrid_detail::getTaskPosition(comm3d), coordinates.numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(fsgrid_detail::mapNeighbourRankToIndex(
@@ -441,133 +439,24 @@ public:
 
    // ============================
    // Coordinate change functions
+   // - Redirected to Coordinates' implementation
    // ============================
-
-   /*! Determine the cell's GlobalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   GlobalID globalIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      // Perform casts to avoid overflow
-      const std::array<FsSize_t, 3> global = localToGlobal(x, y, z);
-      const auto xcontrib = global[0];
-      const auto ycontrib = static_cast<GlobalID>(coordinates.globalSize[0]) * static_cast<GlobalID>(global[1]);
-      const auto zcontrib = static_cast<GlobalID>(coordinates.globalSize[0]) *
-                            static_cast<GlobalID>(coordinates.globalSize[1]) * static_cast<GlobalID>(global[2]);
-      return xcontrib + ycontrib + zcontrib;
+   template <typename... Args> auto globalIDFromLocalCoordinates(Args... args) const {
+      return coordinates.globalIDFromLocalCoordinates(args...);
    }
-
-   /*! Determine the cell's LocalID from its local x,y,z coordinates
-    * \param x The cell's task-local x coordinate
-    * \param y The cell's task-local y coordinate
-    * \param z The cell's task-local z coordinate
-    */
-   LocalID localIDFromLocalCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      // Perform casts to avoid overflow
-      const auto xcontrib = static_cast<LocalID>(coordinates.globalSize[0] > 1) * static_cast<LocalID>(stencil + x);
-      const auto ycontrib = static_cast<LocalID>(coordinates.globalSize[1] > 1) *
-                            static_cast<LocalID>(coordinates.storageSize[0]) * static_cast<LocalID>(stencil + y);
-      const auto zcontrib = static_cast<LocalID>(coordinates.globalSize[2] > 1) *
-                            static_cast<LocalID>(coordinates.storageSize[0]) *
-                            static_cast<LocalID>(coordinates.storageSize[1]) * static_cast<LocalID>(stencil + z);
-
-      return xcontrib + ycontrib + zcontrib;
+   template <typename... Args> auto localIDFromLocalCoordinates(Args... args) const {
+      return coordinates.localIDFromLocalCoordinates(args...);
    }
-
-   /*! Transform global cell coordinates into the local domain.
-    * If the coordinates are out of bounds, (-1,-1,-1) is returned.
-    * \param x The cell's global x coordinate
-    * \param y The cell's global y coordinate
-    * \param z The cell's global z coordinate
-    */
-   std::array<FsIndex_t, 3> globalToLocal(FsSize_t x, FsSize_t y, FsSize_t z) const {
-      // Perform this check before doing the subtraction to avoid cases of underflow and overflow
-      // Particularly for the first three checks:
-      // - casting the localStart to unsigned and then doing the subtraction might cause underflow
-      // - casting the global coordinate to signed might overflow, due to global being too large to fit to the signed
-      // type
-      bool outOfBounds = x < static_cast<FsSize_t>(coordinates.localStart[0]);
-      outOfBounds |= y < static_cast<FsSize_t>(coordinates.localStart[1]);
-      outOfBounds |= z < static_cast<FsSize_t>(coordinates.localStart[2]);
-      outOfBounds |=
-          x >= static_cast<FsSize_t>(coordinates.localSize[0]) + static_cast<FsSize_t>(coordinates.localStart[0]);
-      outOfBounds |=
-          y >= static_cast<FsSize_t>(coordinates.localSize[1]) + static_cast<FsSize_t>(coordinates.localStart[1]);
-      outOfBounds |=
-          z >= static_cast<FsSize_t>(coordinates.localSize[2]) + static_cast<FsSize_t>(coordinates.localStart[2]);
-
-      if (outOfBounds) {
-         return {-1, -1, -1};
-      } else {
-         // This neither over nor underflows as per the checks above
-         return {
-             static_cast<FsIndex_t>(x - static_cast<FsSize_t>(coordinates.localStart[0])),
-             static_cast<FsIndex_t>(y - static_cast<FsSize_t>(coordinates.localStart[1])),
-             static_cast<FsIndex_t>(z - static_cast<FsSize_t>(coordinates.localStart[2])),
-         };
-      }
+   template <typename... Args> auto globalToLocal(Args... args) const { return coordinates.globalToLocal(args...); }
+   template <typename... Args> auto localToGlobal(Args... args) const { return coordinates.localToGlobal(args...); }
+   template <typename... Args> auto getPhysicalCoords(Args... args) const {
+      return coordinates.getPhysicalCoords(args...);
    }
-
-   /*! Calculate global cell position (XYZ in global cell space) from local cell coordinates.
-    *
-    * \param x x-Coordinate, in cells
-    * \param y y-Coordinate, in cells
-    * \param z z-Coordinate, in cells
-    *
-    * \return Global cell coordinates
-    */
-   std::array<FsSize_t, 3> localToGlobal(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      // Cast both before adding to avoid overflow
-      return {
-          static_cast<FsSize_t>(coordinates.localStart[0]) + static_cast<FsSize_t>(x),
-          static_cast<FsSize_t>(coordinates.localStart[1]) + static_cast<FsSize_t>(y),
-          static_cast<FsSize_t>(coordinates.localStart[2]) + static_cast<FsSize_t>(z),
-      };
+   template <typename... Args> auto physicalToGlobal(Args... args) const {
+      return coordinates.physicalToGlobal(args...);
    }
-
-   /*! Get the physical coordinates in the global simulation space for
-    * the given cell.
-    *
-    * \param x local x-Coordinate, in cells
-    * \param y local y-Coordinate, in cells
-    * \param z local z-Coordinate, in cells
-    */
-   std::array<double, 3> getPhysicalCoords(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      return {
-          coordinates.physicalGlobalStart[0] + (coordinates.localStart[0] + x) * coordinates.physicalGridSpacing[0],
-          coordinates.physicalGlobalStart[1] + (coordinates.localStart[1] + y) * coordinates.physicalGridSpacing[1],
-          coordinates.physicalGlobalStart[2] + (coordinates.localStart[2] + z) * coordinates.physicalGridSpacing[2],
-      };
-   }
-
-   /*! Get the global cell coordinates for the given physical coordinates.
-    *
-    * \param x physical x-Coordinate
-    * \param y physical y-Coordinate
-    * \param z physical z-Coordinate
-    */
-   std::array<FsSize_t, 3> physicalToGlobal(double x, double y, double z) const {
-      return {
-          static_cast<FsSize_t>(floor((x - coordinates.physicalGlobalStart[0]) / coordinates.physicalGridSpacing[0])),
-          static_cast<FsSize_t>(floor((y - coordinates.physicalGlobalStart[1]) / coordinates.physicalGridSpacing[1])),
-          static_cast<FsSize_t>(floor((z - coordinates.physicalGlobalStart[2]) / coordinates.physicalGridSpacing[2])),
-      };
-   }
-
-   /*! Get the (fractional) global cell coordinates for the given physical coordinates.
-    *
-    * \param x physical x-Coordinate
-    * \param y physical y-Coordinate
-    * \param z physical z-Coordinate
-    */
-   std::array<double, 3> physicalToFractionalGlobal(double x, double y, double z) const {
-      const auto global = physicalToGlobal(x, y, z);
-      return {
-          (x - coordinates.physicalGlobalStart[0]) / coordinates.physicalGridSpacing[0] - global[0],
-          (y - coordinates.physicalGlobalStart[1]) / coordinates.physicalGridSpacing[1] - global[1],
-          (z - coordinates.physicalGlobalStart[2]) / coordinates.physicalGridSpacing[2] - global[2],
-      };
+   template <typename... Args> auto physicalToFractionalGlobal(Args... args) const {
+      return coordinates.physicalToFractionalGlobal(args...);
    }
 
    // ============================
@@ -576,54 +465,52 @@ public:
 
    /*! Get the size of the local domain handled by this grid.
     */
-   const std::array<FsIndex_t, 3>& getLocalSize() const { return coordinates.localSize; }
+   const auto& getLocalSize() const {
+      constexpr static std::array zero{0, 0, 0};
+      return rank == -1 ? zero : coordinates.localSize;
+   }
 
    /*! Get the start coordinates of the local domain handled by this grid.
     */
-   const std::array<FsIndex_t, 3>& getLocalStart() const { return coordinates.localStart; }
+   const auto& getLocalStart() const { return coordinates.localStart; }
 
    /*! Get global size of the fsgrid domain
     */
-   const std::array<FsSize_t, 3>& getGlobalSize() const { return coordinates.globalSize; }
+   const auto& getGlobalSize() const { return coordinates.globalSize; }
 
    /*! Get the rank of this CPU in the FsGrid communicator */
    Task_t getRank() const { return rank; }
 
    /*! Get the number of ranks in the FsGrid communicator */
-   Task_t getSize() const {
+   Task_t getNumFsRanks() const {
       return coordinates.numTasksPerDim[0] * coordinates.numTasksPerDim[1] * coordinates.numTasksPerDim[2];
    }
 
    /*! Get in which directions, if any, this grid is periodic */
-   const std::array<bool, 3>& getPeriodic() const { return coordinates.periodic; }
+   const auto& getPeriodic() const { return coordinates.periodic; }
 
    /*! Get the decomposition array*/
-   const std::array<Task_t, 3>& getDecomposition() const { return coordinates.numTasksPerDim; }
+   const auto& getDecomposition() const { return coordinates.numTasksPerDim; }
 
    /*! Get the physical grid spacing array*/
-   const std::array<double, 3>& getGridSpacing() const { return coordinates.physicalGridSpacing; }
+   const auto& getGridSpacing() const { return coordinates.physicalGridSpacing; }
 
    // ============================
    // MPI functions
    // ============================
 
-   // These functions could be changed to static functions in a namespace that take technical grid and data pointer as
-   // argument
    /*! Perform ghost cell communication.
     */
    void updateGhostCells() {
-
-      if (rank == -1)
+      if (rank == -1) {
          return;
+      }
 
       // TODO, faster with simultaneous isends& ireceives?
       std::array<MPI_Request, 27> receiveRequests;
       std::array<MPI_Request, 27> sendRequests;
-
-      for (uint32_t i = 0; i < 27; i++) {
-         receiveRequests[i] = MPI_REQUEST_NULL;
-         sendRequests[i] = MPI_REQUEST_NULL;
-      }
+      receiveRequests.fill(MPI_REQUEST_NULL);
+      sendRequests.fill(MPI_REQUEST_NULL);
 
       for (int32_t x = -1; x <= 1; x++) {
          for (int32_t y = -1; y <= 1; y++) {
@@ -685,28 +572,10 @@ public:
     * \return a task for the grid's cartesian communicator
     */
    Task_t getTaskForGlobalID(GlobalID id) const {
-      // Transform globalID to global cell coordinate
-      const std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, coordinates.globalSize);
-
-      // Find the index in the task grid this Cell belongs to
-      std::array<FsIndex_t, 3> taskIndex;
-      for (uint32_t i = 0; i < 3; i++) {
-         const FsIndex_t n_per_task =
-             static_cast<FsIndex_t>(coordinates.globalSize[i] / static_cast<FsSize_t>(coordinates.numTasksPerDim[i]));
-         const FsIndex_t remainder =
-             static_cast<FsIndex_t>(coordinates.globalSize[i] % static_cast<FsSize_t>(coordinates.numTasksPerDim[i]));
-
-         if (cell[i] < remainder * (n_per_task + 1)) {
-            taskIndex[i] = cell[i] / (n_per_task + 1);
-         } else {
-            taskIndex[i] = remainder + (cell[i] - remainder * (n_per_task + 1)) / n_per_task;
-         }
-      }
-
-      // Get the task number from the communicator
+      const auto taskIndex = coordinates.globalIdToTaskPos(id);
       Task_t taskID = -1;
       FSGRID_MPI_CHECK(MPI_Cart_rank(comm3d, taskIndex.data(), &taskID), "Unable to find FsGrid rank for global ID ",
-                       id, "(coordinates [", cell[0], ", ", cell[1], ", ", cell[2], "])");
+                       id);
 
       return taskID;
    }
