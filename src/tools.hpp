@@ -29,6 +29,11 @@
 #include <stdint.h>
 
 #define FSGRID_MPI_CHECK(status, ...) FsGridTools::writeToCerrAndThrowIfFailed(status != MPI_SUCCESS, __VA_ARGS__)
+#ifdef FSGRID_DEBUG
+#define FSGRID_DEBUG_ASSERT(condition, ...) FsGridTools::writeToCerrAndThrowIfFailed(condition, __VA_ARGS__)
+#else
+#define FSGRID_DEBUG_ASSERT(condition, ...)
+#endif
 
 namespace FsGridTools {
 // Size type for global array indices
@@ -44,7 +49,7 @@ typedef int32_t Task_t;
 // \param numTasks Total number of tasks in this dimension
 // \param taskIndex This task's position in this dimension
 // \return Number of cells for this task's local domain (actual cells, not counting ghost cells)
-static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
+constexpr static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
    const FsIndex_t nPerTask = static_cast<Task_t>(numCells) / numTasks;
    const FsIndex_t remainder = static_cast<Task_t>(numCells) % numTasks;
    return nPerTask + (taskIndex < remainder);
@@ -55,7 +60,7 @@ static FsIndex_t calcLocalSize(FsSize_t numCells, Task_t numTasks, Task_t taskIn
 // \param numTasks Total number of tasks in this dimension
 // \param taskIndex This task's position in this dimension
 // \return Cell number at which this task's domains cells start (actual cells, not counting ghost cells)
-static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
+constexpr static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t numTasks, Task_t taskIndex) {
    const FsIndex_t remainder = static_cast<Task_t>(numCells) % numTasks;
    return taskIndex * calcLocalSize(numCells, numTasks, taskIndex) + (taskIndex >= remainder) * remainder;
 }
@@ -63,7 +68,7 @@ static FsIndex_t calcLocalStart(FsSize_t numCells, Task_t numTasks, Task_t taskI
 //! Helper function: given a global cellID, calculate the global cell coordinate from it.
 // This is then used do determine the task responsible for this cell, and the
 // local cell index in it.
-static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::array<FsSize_t, 3>& globalSize) {
+constexpr static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::array<FsSize_t, 3>& globalSize) {
    // We're returning FsIndex_t, which is int32_t. globalSizes are FsSize_t, which are uint32_t.
    // Need to check that the globalSizes aren't larger than maximum of int32_t
    const bool globalSizeOverflows = globalSize[0] > std::numeric_limits<FsIndex_t>::max() ||
@@ -96,8 +101,8 @@ static std::array<FsIndex_t, 3> globalIDtoCellCoord(GlobalID id, const std::arra
 }
 
 //! Helper function to optimize decomposition of this grid over the given number of tasks
-static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& globalSize, Task_t nProcs,
-                                                        int32_t numGhostCells = 1) {
+constexpr static std::array<Task_t, 3> computeDomainDecomposition(const std::array<FsSize_t, 3>& globalSize,
+                                                                  Task_t nProcs, int32_t numGhostCells = 1) {
    const std::array minDomainSize = {
        globalSize[0] == 1 ? 1 : numGhostCells,
        globalSize[1] == 1 ? 1 : numGhostCells,
