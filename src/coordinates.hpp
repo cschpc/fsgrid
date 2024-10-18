@@ -226,9 +226,9 @@ public:
     */
    constexpr std::array<FsSize_t, 3> physicalToGlobal(double x, double y, double z) const {
       return {
-          static_cast<FsSize_t>(floor((x - physicalGlobalStart[0]) / physicalGridSpacing[0])),
-          static_cast<FsSize_t>(floor((y - physicalGlobalStart[1]) / physicalGridSpacing[1])),
-          static_cast<FsSize_t>(floor((z - physicalGlobalStart[2]) / physicalGridSpacing[2])),
+          static_cast<FsSize_t>((x - physicalGlobalStart[0]) / physicalGridSpacing[0]),
+          static_cast<FsSize_t>((y - physicalGlobalStart[1]) / physicalGridSpacing[1]),
+          static_cast<FsSize_t>((z - physicalGlobalStart[2]) / physicalGridSpacing[2]),
       };
    }
 
