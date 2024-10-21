@@ -433,43 +433,33 @@ public:
          return;
       }
 
-      // TODO, faster with simultaneous isends& ireceives?
       std::array<MPI_Request, 27> receiveRequests;
       std::array<MPI_Request, 27> sendRequests;
       receiveRequests.fill(MPI_REQUEST_NULL);
       sendRequests.fill(MPI_REQUEST_NULL);
 
-      for (int32_t x = -1; x <= 1; x++) {
-         for (int32_t y = -1; y <= 1; y++) {
-            for (int32_t z = -1; z <= 1; z++) {
-               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
-               int32_t receiveId = (1 - x) * 9 + (1 - y) * 3 + (1 - z);
-               if (neighbourIndexToRank[receiveId] != MPI_PROC_NULL &&
-                   neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  FSGRID_MPI_CHECK(MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId],
-                                             neighbourIndexToRank[receiveId], shiftId, comm3d,
-                                             &(receiveRequests[shiftId])),
-                                   "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ",
-                                   neighbourIndexToRank[receiveId]);
-               }
-            }
+      for (uint32_t shiftId = 0; shiftId < 27; shiftId++) {
+         const auto receiveId = 26 - shiftId;
+         const auto receiveFrom = neighbourIndexToRank[receiveId];
+         const auto sendType = neighbourSendType[shiftId];
+         const auto receiveType = neighbourReceiveType[shiftId];
+         // Is this a bug? Should the check be on receiveType, not sendType? It has been like this since 2016
+         if (receiveFrom != MPI_PROC_NULL && sendType != MPI_DATATYPE_NULL) {
+            FSGRID_MPI_CHECK(
+                MPI_Irecv(data.data(), 1, receiveType, receiveFrom, shiftId, comm3d, &(receiveRequests[shiftId])),
+                "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ", receiveFrom);
          }
       }
 
-      for (int32_t x = -1; x <= 1; x++) {
-         for (int32_t y = -1; y <= 1; y++) {
-            for (int32_t z = -1; z <= 1; z++) {
-               int32_t shiftId = (x + 1) * 9 + (y + 1) * 3 + (z + 1);
-               int32_t sendId = shiftId;
-               if (neighbourIndexToRank[sendId] != MPI_PROC_NULL && neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
-                  FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbourIndexToRank[sendId],
-                                             shiftId, comm3d, &(sendRequests[shiftId])),
-                                   "Rank ", rank, " failed to send data to neighbor ", sendId, " with rank ",
-                                   neighbourIndexToRank[sendId]);
-               }
-            }
+      for (uint32_t shiftId = 0; shiftId < 27; shiftId++) {
+         const auto sendTo = neighbourIndexToRank[shiftId];
+         const auto sendType = neighbourSendType[shiftId];
+         if (sendTo != MPI_PROC_NULL && sendType != MPI_DATATYPE_NULL) {
+            FSGRID_MPI_CHECK(MPI_Isend(data.data(), 1, sendType, sendTo, shiftId, comm3d, &(sendRequests[shiftId])),
+                             "Rank ", rank, " failed to send data to neighbor ", shiftId, " with rank ", sendTo);
          }
       }
+
       FSGRID_MPI_CHECK(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
                        "Synchronization at ghost cell update failed");
       FSGRID_MPI_CHECK(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
