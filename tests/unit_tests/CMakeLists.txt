@@ -6,9 +6,9 @@ set(testname ${PROJECT_NAME}_unit_tests)
 
 add_executable(
     ${testname}
-    tools_tests.cpp
-    grid_tests.cpp
     coordinates_tests.cpp
+    grid_tests.cpp
+    tools_tests.cpp
 )
 
 target_include_directories(${testname} PRIVATE

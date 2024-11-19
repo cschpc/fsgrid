@@ -5,88 +5,88 @@
 #include <stdexcept>
 
 TEST(FsGridToolsTests, calcLocalStart1) {
-    constexpr FsGridTools::FsSize_t numGlobalCells = 1024u;
-    constexpr FsGridTools::Task_t numTasks = 32u;
+   constexpr fsgrid_tools::FsSize_t numGlobalCells = 1024u;
+   constexpr fsgrid_tools::Task_t numTasks = 32u;
 
-    ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, 0), 0);
-    ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, 1), 32);
-    ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, 2), 64);
-    ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, 3), 96);
+   ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, 0), 0);
+   ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, 1), 32);
+   ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, 2), 64);
+   ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, 3), 96);
 }
 
 TEST(FsGridToolsTests, calcLocalStart2) {
-   constexpr FsGridTools::FsSize_t numGlobalCells = 666u;
-   constexpr FsGridTools::Task_t numTasks = 64u;
+   constexpr fsgrid_tools::FsSize_t numGlobalCells = 666u;
+   constexpr fsgrid_tools::Task_t numTasks = 64u;
 
    for (int i = 0; i < 26; i++) {
-      ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, i), i * 11);
+      ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, i), i * 11);
    }
    for (int i = 26; i < numTasks; i++) {
-      ASSERT_EQ(FsGridTools::calcLocalStart(numGlobalCells, numTasks, i), i * 10 + 26);
+      ASSERT_EQ(fsgrid_tools::calcLocalStart(numGlobalCells, numTasks, i), i * 10 + 26);
    }
 }
 
 TEST(FsGridToolsTests, calcLocalSize1) {
-   constexpr FsGridTools::FsSize_t numGlobalCells = 1024u;
-   constexpr FsGridTools::Task_t numTasks = 32u;
+   constexpr fsgrid_tools::FsSize_t numGlobalCells = 1024u;
+   constexpr fsgrid_tools::Task_t numTasks = 32u;
 
    for (int i = 0; i < numTasks; i++) {
-      ASSERT_EQ(FsGridTools::calcLocalSize(numGlobalCells, numTasks, i), 32);
+      ASSERT_EQ(fsgrid_tools::calcLocalSize(numGlobalCells, numTasks, i), 32);
    }
 }
 
 TEST(FsGridToolsTests, calcLocalSize2) {
-   constexpr FsGridTools::FsSize_t numGlobalCells = 666u;
-   constexpr FsGridTools::Task_t numTasks = 64u;
+   constexpr fsgrid_tools::FsSize_t numGlobalCells = 666u;
+   constexpr fsgrid_tools::Task_t numTasks = 64u;
 
    for (int i = 0; i < 26; i++) {
-      ASSERT_EQ(FsGridTools::calcLocalSize(numGlobalCells, numTasks, i), 11);
+      ASSERT_EQ(fsgrid_tools::calcLocalSize(numGlobalCells, numTasks, i), 11);
    }
 
    for (int i = 26; i < numTasks; i++) {
-      ASSERT_EQ(FsGridTools::calcLocalSize(numGlobalCells, numTasks, i), 10);
+      ASSERT_EQ(fsgrid_tools::calcLocalSize(numGlobalCells, numTasks, i), 10);
    }
 }
 
 TEST(FsGridToolsTests, globalIDtoCellCoord1) {
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize = {3, 7, 45};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize = {3, 7, 45};
 
-   for (FsGridTools::FsSize_t i = 0; i < globalSize[0] * globalSize[1] * globalSize[2]; i++) {
-      const std::array<FsGridTools::FsIndex_t, 3> result = {
-          (FsGridTools::FsIndex_t)(i % globalSize[0]),
-          (FsGridTools::FsIndex_t)((i / globalSize[0]) % globalSize[1]),
-          (FsGridTools::FsIndex_t)((i / (globalSize[0] * globalSize[1])) % globalSize[2]),
+   for (fsgrid_tools::FsSize_t i = 0; i < globalSize[0] * globalSize[1] * globalSize[2]; i++) {
+      const std::array<fsgrid_tools::FsIndex_t, 3> result = {
+          (fsgrid_tools::FsIndex_t)(i % globalSize[0]),
+          (fsgrid_tools::FsIndex_t)((i / globalSize[0]) % globalSize[1]),
+          (fsgrid_tools::FsIndex_t)((i / (globalSize[0] * globalSize[1])) % globalSize[2]),
       };
-      ASSERT_EQ(FsGridTools::globalIDtoCellCoord(i, globalSize), result);
+      ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord(i, globalSize), result);
    }
 }
 
 TEST(FsGridToolsTests, globalIDtoCellCoord_globalSize_would_overflow) {
    constexpr uint32_t maxUint = std::numeric_limits<uint32_t>::max();
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize = {maxUint, 1, 1};
-   const std::array<FsGridTools::FsIndex_t, 3> result = {
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize = {maxUint, 1, 1};
+   const std::array<fsgrid_tools::FsIndex_t, 3> result = {
        -2147483648,
        -2147483648,
        -2147483648,
    };
-   ASSERT_EQ(FsGridTools::globalIDtoCellCoord(globalSize[0] - 1, globalSize), result);
+   ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord(globalSize[0] - 1, globalSize), result);
 }
 
 TEST(FsGridToolsTests, globalIDtoCellCoord_globalSize_is_maximum_int) {
    constexpr int32_t maxInt = std::numeric_limits<int32_t>::max();
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize = {maxInt, maxInt, maxInt};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize = {maxInt, maxInt, maxInt};
 
-   std::array<FsGridTools::FsIndex_t, 3> result = {maxInt - 1, 0, 0};
-   ASSERT_EQ(FsGridTools::globalIDtoCellCoord(globalSize[0] - 1, globalSize), result);
+   std::array<fsgrid_tools::FsIndex_t, 3> result = {maxInt - 1, 0, 0};
+   ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord(globalSize[0] - 1, globalSize), result);
 
    result = {0, 1, 0};
-   ASSERT_EQ(FsGridTools::globalIDtoCellCoord(globalSize[0], globalSize), result);
+   ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord(globalSize[0], globalSize), result);
 
    result = {0, 0, 1};
-   ASSERT_EQ(FsGridTools::globalIDtoCellCoord((int64_t)globalSize[0] * globalSize[0], globalSize), result);
+   ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord((int64_t)globalSize[0] * globalSize[0], globalSize), result);
 
    result = {maxInt - 1, maxInt - 1, 0};
-   ASSERT_EQ(FsGridTools::globalIDtoCellCoord((int64_t)globalSize[0] * globalSize[0] - 1, globalSize), result);
+   ASSERT_EQ(fsgrid_tools::globalIDtoCellCoord((int64_t)globalSize[0] * globalSize[0] - 1, globalSize), result);
 }
 
 struct Decomposition {
@@ -101,8 +101,8 @@ struct SystemSize {
    uint32_t z = 0u;
 };
 
-Decomposition computeDecomposition(const SystemSize systemSize, const FsGridTools::Task_t nProcs) {
-   const auto dd = FsGridTools::computeDomainDecomposition(
+Decomposition computeDecomposition(const SystemSize systemSize, const fsgrid_tools::Task_t nProcs) {
+   const auto dd = fsgrid_tools::computeDomainDecomposition(
        {
            systemSize.x,
            systemSize.y,
@@ -236,7 +236,7 @@ TEST(FsGridToolsTests, MPI_err_check_should_throw) {
    EXPECT_THROW(
        {
           try {
-             FsGridTools::mpiCheck(MPI_SUCCESS + 1, "Should throw with unsuccessful check");
+             fsgrid_tools::mpiCheck(MPI_SUCCESS + 1, "Should throw with unsuccessful check");
           } catch (const std::runtime_error& e) {
              EXPECT_STREQ("Unrecoverable error encountered in FsGrid, consult cerr for more information", e.what());
              throw;
@@ -245,4 +245,40 @@ TEST(FsGridToolsTests, MPI_err_check_should_throw) {
        std::runtime_error);
 }
 
-TEST(FsGridToolsTests, MPI_err_check_should_pass) { FsGridTools::mpiCheck(MPI_SUCCESS, "This should pass"); }
+TEST(FsGridToolsTests, MPI_err_check_should_pass) { fsgrid_tools::mpiCheck(MPI_SUCCESS, "This should pass"); }
+
+TEST(BitMaskTest, unsetMask) {
+   constexpr fsgrid_tools::BitMask32 mask(0);
+   for (uint32_t i = 0; i < 32; i++) {
+      ASSERT_EQ(mask[i], 0);
+   }
+}
+
+TEST(BitMaskTest, bit1IsSet) {
+   constexpr fsgrid_tools::BitMask32 mask(1);
+   ASSERT_EQ(mask[0], 1);
+   for (uint32_t i = 1; i < 32; i++) {
+      ASSERT_EQ(mask[i], 0);
+   }
+}
+
+TEST(BitMaskTest, bits1and2AreSet) {
+   constexpr fsgrid_tools::BitMask32 mask(3);
+   ASSERT_EQ(mask[0], 1);
+   ASSERT_EQ(mask[1], 1);
+   for (uint32_t i = 2; i < 32; i++) {
+      ASSERT_EQ(mask[i], 0);
+   }
+}
+
+TEST(BitMaskTest, allBitsAreSet) {
+   constexpr fsgrid_tools::BitMask32 mask(~0u);
+   for (uint32_t i = 0; i < 32; i++) {
+      ASSERT_EQ(mask[i], 1);
+   }
+}
+
+TEST(BitMaskTest, tooLargeIndexGivesZero) {
+   constexpr fsgrid_tools::BitMask32 mask(~0u);
+   ASSERT_EQ(mask[32], 0);
+}

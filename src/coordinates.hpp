@@ -21,21 +21,20 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "tools.hpp"
-#include <algorithm>
 
 namespace fsgrid_detail {
-using FsSize_t = FsGridTools::FsSize_t;
-using FsIndex_t = FsGridTools::FsIndex_t;
-using LocalID = FsGridTools::LocalID;
-using GlobalID = FsGridTools::GlobalID;
-using Task_t = FsGridTools::Task_t;
+using FsSize_t = fsgrid_tools::FsSize_t;
+using FsIndex_t = fsgrid_tools::FsIndex_t;
+using LocalID = fsgrid_tools::LocalID;
+using GlobalID = fsgrid_tools::GlobalID;
+using Task_t = fsgrid_tools::Task_t;
 
 constexpr static std::array<Task_t, 3> computeNumTasksPerDim(std::array<FsSize_t, 3> globalSize,
                                                              const std::array<Task_t, 3>& decomposition,
                                                              int32_t numRanks, int32_t numGhostCells) {
    const bool allZero = decomposition[0] == 0 && decomposition[1] == 0 && decomposition[2] == 0;
    if (allZero) {
-      return FsGridTools::computeDomainDecomposition(globalSize, numRanks, numGhostCells);
+      return fsgrid_tools::computeDomainDecomposition(globalSize, numRanks, numGhostCells);
    }
 
    const bool incorrectDistribution = decomposition[0] * decomposition[1] * decomposition[2] != numRanks;
@@ -67,9 +66,9 @@ constexpr static std::array<FsIndex_t, 3> calculateLocalSize(const std::array<Fs
    }
 
    std::array localSize = {
-       FsGridTools::calcLocalSize(globalSize[0], numTasksPerDim[0], taskPosition[0]),
-       FsGridTools::calcLocalSize(globalSize[1], numTasksPerDim[1], taskPosition[1]),
-       FsGridTools::calcLocalSize(globalSize[2], numTasksPerDim[2], taskPosition[2]),
+       fsgrid_tools::calcLocalSize(globalSize[0], numTasksPerDim[0], taskPosition[0]),
+       fsgrid_tools::calcLocalSize(globalSize[1], numTasksPerDim[1], taskPosition[1]),
+       fsgrid_tools::calcLocalSize(globalSize[2], numTasksPerDim[2], taskPosition[2]),
    };
 
    if (localSizeTooSmall(globalSize, localSize, numGhostCells)) {
@@ -85,9 +84,9 @@ constexpr static std::array<FsIndex_t, 3> calculateLocalStart(const std::array<F
                                                               const std::array<Task_t, 3>& numTasksPerDim,
                                                               const std::array<Task_t, 3>& taskPosition) {
    return {
-       FsGridTools::calcLocalStart(globalSize[0], numTasksPerDim[0], taskPosition[0]),
-       FsGridTools::calcLocalStart(globalSize[1], numTasksPerDim[1], taskPosition[1]),
-       FsGridTools::calcLocalStart(globalSize[2], numTasksPerDim[2], taskPosition[2]),
+       fsgrid_tools::calcLocalStart(globalSize[0], numTasksPerDim[0], taskPosition[0]),
+       fsgrid_tools::calcLocalStart(globalSize[1], numTasksPerDim[1], taskPosition[1]),
+       fsgrid_tools::calcLocalStart(globalSize[2], numTasksPerDim[2], taskPosition[2]),
    };
 }
 
@@ -104,11 +103,11 @@ constexpr static std::array<FsIndex_t, 3> calculateStorageSize(const std::array<
 
 struct Coordinates {
 private:
-   using FsSize_t = FsGridTools::FsSize_t;
-   using FsIndex_t = FsGridTools::FsIndex_t;
-   using LocalID = FsGridTools::LocalID;
-   using GlobalID = FsGridTools::GlobalID;
-   using Task_t = FsGridTools::Task_t;
+   using FsSize_t = fsgrid_tools::FsSize_t;
+   using FsIndex_t = fsgrid_tools::FsIndex_t;
+   using LocalID = fsgrid_tools::LocalID;
+   using GlobalID = fsgrid_tools::GlobalID;
+   using Task_t = fsgrid_tools::Task_t;
 
 public:
    constexpr Coordinates() {}
@@ -251,7 +250,7 @@ public:
    }
 
    constexpr std::array<FsIndex_t, 3> globalIdToTaskPos(GlobalID id) const {
-      const std::array<FsIndex_t, 3> cell = FsGridTools::globalIDtoCellCoord(id, globalSize);
+      const std::array<FsIndex_t, 3> cell = fsgrid_tools::globalIDtoCellCoord(id, globalSize);
 
       auto computeIndex = [&](uint32_t i) {
          const FsIndex_t nPerTask = static_cast<FsIndex_t>(globalSize[i] / static_cast<FsSize_t>(numTasksPerDim[i]));

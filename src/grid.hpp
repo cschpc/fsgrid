@@ -35,11 +35,11 @@
 #include <vector>
 
 namespace fsgrid_detail {
-using FsSize_t = FsGridTools::FsSize_t;
-using FsIndex_t = FsGridTools::FsIndex_t;
-using LocalID = FsGridTools::LocalID;
-using GlobalID = FsGridTools::GlobalID;
-using Task_t = FsGridTools::Task_t;
+using FsSize_t = fsgrid_tools::FsSize_t;
+using FsIndex_t = fsgrid_tools::FsIndex_t;
+using LocalID = fsgrid_tools::LocalID;
+using GlobalID = fsgrid_tools::GlobalID;
+using Task_t = fsgrid_tools::Task_t;
 
 // Assumes x, y and z to belong to set [-1, 0, 1]
 // returns a value in (inclusive) range [0, 26]
@@ -77,9 +77,9 @@ static std::array<int32_t, 27> mapNeigbourIndexToRank(const std::array<Task_t, 3
 
       if (taskPositionWithinLimits) {
          int32_t neighbourRank;
-         FsGridTools::mpiCheck(MPI_Cart_rank(comm, neighbourPosition.data(), &neighbourRank), "Rank ", rank,
-                               " can't determine neighbour rank at position [", neighbourPosition[0], ", ",
-                               neighbourPosition[1], ", ", neighbourPosition[2], "]");
+         fsgrid_tools::mpiCheck(MPI_Cart_rank(comm, neighbourPosition.data(), &neighbourRank), "Rank ", rank,
+                                " can't determine neighbour rank at position [", neighbourPosition[0], ", ",
+                                neighbourPosition[1], ", ", neighbourPosition[2], "]");
          return neighbourRank;
       } else {
          return MPI_PROC_NULL;
@@ -109,7 +109,7 @@ static std::vector<char> mapNeighbourRankToIndex(const std::array<int32_t, 27>& 
 
 static int32_t getCommRank(MPI_Comm parentComm) {
    int32_t parentRank = -1;
-   FsGridTools::mpiCheck(MPI_Comm_rank(parentComm, &parentRank), "Couldn't get rank from parent communicator");
+   fsgrid_tools::mpiCheck(MPI_Comm_rank(parentComm, &parentRank), "Couldn't get rank from parent communicator");
    return parentRank;
 }
 
@@ -119,8 +119,8 @@ static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, const std::arra
    const auto colour = (parentRank < numProcs) ? 1 : MPI_UNDEFINED;
 
    MPI_Comm comm = MPI_COMM_NULL;
-   FsGridTools::mpiCheck(MPI_Comm_split(parentComm, colour, parentRank, &comm),
-                         "Couldn's split parent communicator to subcommunicators");
+   fsgrid_tools::mpiCheck(MPI_Comm_split(parentComm, colour, parentRank, &comm),
+                          "Couldn's split parent communicator to subcommunicators");
 
    const std::array<int32_t, 3> pi = {
        isPeriodic[0],
@@ -130,10 +130,10 @@ static MPI_Comm createCartesianCommunicator(MPI_Comm parentComm, const std::arra
 
    MPI_Comm comm3d = MPI_COMM_NULL;
    if (comm != MPI_COMM_NULL) {
-      FsGridTools::mpiCheck(MPI_Cart_create(comm, 3, numTasksPerDim.data(), pi.data(), 0, &comm3d),
-                            "Creating cartesian communicatior failed when attempting to create FsGrid!");
+      fsgrid_tools::mpiCheck(MPI_Cart_create(comm, 3, numTasksPerDim.data(), pi.data(), 0, &comm3d),
+                             "Creating cartesian communicatior failed when attempting to create FsGrid!");
 
-      FsGridTools::mpiCheck(MPI_Comm_free(&comm), "Failed to free MPI comm");
+      fsgrid_tools::mpiCheck(MPI_Comm_free(&comm), "Failed to free MPI comm");
    }
 
    return comm3d;
@@ -147,7 +147,7 @@ static std::array<int32_t, 3> getTaskPosition(MPI_Comm comm) {
    std::array<int32_t, 3> taskPos{-1, -1, -1};
    if (comm != MPI_COMM_NULL) {
       const int rank = getCommRank(comm);
-      FsGridTools::mpiCheck(
+      fsgrid_tools::mpiCheck(
           MPI_Cart_coords(comm, rank, taskPos.size(), taskPos.data()), "Rank ", rank,
           " unable to determine own position in cartesian communicator when attempting to create FsGrid!");
    }
@@ -159,8 +159,8 @@ static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t,
                                                      const std::array<FsIndex_t, 3>& localSize, int32_t stencilSize,
                                                      bool generateForSend) {
    MPI_Datatype baseType;
-   FsGridTools::mpiCheck(MPI_Type_contiguous(sizeof(T), MPI_BYTE, &baseType),
-                         "Failed to create a contiguous data type");
+   fsgrid_tools::mpiCheck(MPI_Type_contiguous(sizeof(T), MPI_BYTE, &baseType),
+                          "Failed to create a contiguous data type");
    const std::array<int32_t, 3> reverseStorageSize = {
        storageSize[2],
        storageSize[1],
@@ -206,13 +206,13 @@ static std::array<MPI_Datatype, 27> generateMPITypes(const std::array<FsIndex_t,
          }
       }();
 
-      FsGridTools::mpiCheck(MPI_Type_create_subarray(3, reverseStorageSize.data(), reverseSubarraySize.data(),
-                                                     reverseSubarrayStart.data(), MPI_ORDER_C, baseType, &(types[i])),
-                            "Failed to create a subarray type");
-      FsGridTools::mpiCheck(MPI_Type_commit(&(types[i])), "Failed to commit MPI type");
+      fsgrid_tools::mpiCheck(MPI_Type_create_subarray(3, reverseStorageSize.data(), reverseSubarraySize.data(),
+                                                      reverseSubarrayStart.data(), MPI_ORDER_C, baseType, &(types[i])),
+                             "Failed to create a subarray type");
+      fsgrid_tools::mpiCheck(MPI_Type_commit(&(types[i])), "Failed to commit MPI type");
    }
 
-   FsGridTools::mpiCheck(MPI_Type_free(&baseType), "Couldn't free the basetype used to create the sendTypes");
+   fsgrid_tools::mpiCheck(MPI_Type_free(&baseType), "Couldn't free the basetype used to create the sendTypes");
 
    return types;
 }
@@ -226,19 +226,35 @@ static std::vector<int32_t> taskPosToTask(MPI_Comm parentComm, MPI_Comm cartesia
          for (auto y = 0; y < numTasksPerDim[1]; y++) {
             for (auto z = 0; z < numTasksPerDim[2]; z++) {
                const std::array coords = {x, y, z};
-               FsGridTools::mpiCheck(MPI_Cart_rank(cartesianComm, coords.data(), &tasks[i++]),
-                                     "Unable to get rank from cartesian communicator");
+               fsgrid_tools::mpiCheck(MPI_Cart_rank(cartesianComm, coords.data(), &tasks[i++]),
+                                      "Unable to get rank from cartesian communicator");
             }
          }
       }
    }
 
-   FsGridTools::mpiCheck(
+   fsgrid_tools::mpiCheck(
        MPI_Bcast(static_cast<void*>(tasks.data()), static_cast<int32_t>(tasks.size()), MPI_INT, 0, parentComm),
        "Unable to broadcast task pos array");
 
    return tasks;
 }
+
+static fsgrid_tools::BitMask32 makeNeigbourBitMask(int32_t rank, const std::array<int32_t, 27>& neighbourIndexToRank) {
+   auto getNeighbourBit = [&rank, &neighbourIndexToRank](uint32_t neighbourIndex) {
+      const auto neighbourRank = neighbourIndexToRank[neighbourIndex];
+      const auto neighbourIsSelf = neighbourRank == rank;
+      return static_cast<uint32_t>(neighbourIsSelf) << neighbourIndex;
+   };
+
+   uint32_t bits = 0;
+   for (auto i = 0u; i < 27u; i++) {
+      bits |= getNeighbourBit(i);
+   }
+
+   return fsgrid_tools::BitMask32(bits);
+}
+
 } // namespace fsgrid_detail
 
 /*! Simple cartesian, non-loadbalancing MPI Grid for use with the fieldsolver
@@ -247,11 +263,11 @@ static std::vector<int32_t> taskPosToTask(MPI_Comm parentComm, MPI_Comm cartesia
  * \param stencil ghost cell width of this grid
  */
 template <typename T, int32_t stencil> class FsGrid {
-   using FsSize_t = FsGridTools::FsSize_t;
-   using FsIndex_t = FsGridTools::FsIndex_t;
-   using LocalID = FsGridTools::LocalID;
-   using GlobalID = FsGridTools::GlobalID;
-   using Task_t = FsGridTools::Task_t;
+   using FsSize_t = fsgrid_tools::FsSize_t;
+   using FsIndex_t = fsgrid_tools::FsIndex_t;
+   using LocalID = fsgrid_tools::LocalID;
+   using GlobalID = fsgrid_tools::GlobalID;
+   using Task_t = fsgrid_tools::Task_t;
 
 public:
    /*! Constructor for this grid.
@@ -273,6 +289,7 @@ public:
          neighbourIndexToRank(fsgrid_detail::mapNeigbourIndexToRank(
              fsgrid_detail::getTaskPosition(comm3d), coordinates.numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(fsgrid_detail::mapNeighbourRankToIndex(neighbourIndexToRank, numProcs)),
+         neighbourIsSelfBitMask(fsgrid_detail::makeNeigbourBitMask(rank, neighbourIndexToRank)),
          neighbourSendType(
              fsgrid_detail::generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, true)),
          neighbourReceiveType(
@@ -289,14 +306,14 @@ public:
       if (rank != -1) {
          for (size_t i = 0; i < 27; i++) {
             if (neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-               FsGridTools::mpiCheck(MPI_Type_free(&(neighbourReceiveType[i])), "Failed to free MPI type");
+               fsgrid_tools::mpiCheck(MPI_Type_free(&(neighbourReceiveType[i])), "Failed to free MPI type");
             if (neighbourSendType[i] != MPI_DATATYPE_NULL)
-               FsGridTools::mpiCheck(MPI_Type_free(&(neighbourSendType[i])), "Failed to free MPI type");
+               fsgrid_tools::mpiCheck(MPI_Type_free(&(neighbourSendType[i])), "Failed to free MPI type");
          }
       }
 
       if (comm3d != MPI_COMM_NULL)
-         FsGridTools::mpiCheck(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
+         fsgrid_tools::mpiCheck(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
    }
 
    // ============================
@@ -308,8 +325,8 @@ public:
    bool localIdInBounds(LocalID id) const { return 0 <= id && (size_t)id < data.size(); }
 
    T* get(LocalID id) {
-      FsGridTools::debugAssert(localIdInBounds(id), "Out-of bounds access in FsGrid::get!", "(LocalID = ", id,
-                               ", but storage space is ", data.size(), ". Expect weirdness.");
+      fsgrid_tools::debugAssert(localIdInBounds(id), "Out-of bounds access in FsGrid::get!", "(LocalID = ", id,
+                                ", but storage space is ", data.size(), ". Expect weirdness.");
       return localIdInBounds(id) ? &data[static_cast<size_t>(id)] : nullptr;
    }
 
@@ -350,13 +367,14 @@ public:
     * \return local id of the cell
     */
    LocalID localIDFromCellCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      FsGridTools::debugAssert(coordinates.cellIndicesAreWithinBounds(x, y, z), "Out-of bounds access in FsGrid::get!");
+      fsgrid_tools::debugAssert(coordinates.cellIndicesAreWithinBounds(x, y, z),
+                                "Out-of bounds access in FsGrid::get!");
       const auto neighbourIndex = coordinates.neighbourIndexFromCellCoordinates(x, y, z);
       const auto neighbourRank = neighbourIndexToRank[neighbourIndex];
       const auto isSelf = neighbourRank == rank;
 
-      FsGridTools::debugAssert(isSelf || neighbourRank != MPI_PROC_NULL,
-                               "Trying to access data from a non-existing neighbour");
+      fsgrid_tools::debugAssert(isSelf || neighbourRank != MPI_PROC_NULL,
+                                "Trying to access data from a non-existing neighbour");
 
       const auto neighbourIsSelf = neighbourIndex != 13 && isSelf;
       const auto id = neighbourIsSelf ? coordinates.localIDFromLocalCoordinates(coordinates.shiftCellIndices(x, y, z))
@@ -417,7 +435,7 @@ public:
          const auto receiveType = neighbourReceiveType[shiftId];
          // Is this a bug? Should the check be on receiveType, not sendType? It has been like this since 2016
          if (receiveFrom != MPI_PROC_NULL && sendType != MPI_DATATYPE_NULL) {
-            FsGridTools::mpiCheck(
+            fsgrid_tools::mpiCheck(
                 MPI_Irecv(data.data(), 1, receiveType, receiveFrom, shiftId, comm3d, &(receiveRequests[shiftId])),
                 "Rank ", rank, " failed to receive data from neighbor ", receiveId, " with rank ", receiveFrom);
          }
@@ -427,16 +445,16 @@ public:
          const auto sendTo = neighbourIndexToRank[shiftId];
          const auto sendType = neighbourSendType[shiftId];
          if (sendTo != MPI_PROC_NULL && sendType != MPI_DATATYPE_NULL) {
-            FsGridTools::mpiCheck(
+            fsgrid_tools::mpiCheck(
                 MPI_Isend(data.data(), 1, sendType, sendTo, shiftId, comm3d, &(sendRequests[shiftId])), "Rank ", rank,
                 " failed to send data to neighbor ", shiftId, " with rank ", sendTo);
          }
       }
 
-      FsGridTools::mpiCheck(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
-                            "Synchronization at ghost cell update failed");
-      FsGridTools::mpiCheck(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
-                            "Synchronization at ghost cell update failed");
+      fsgrid_tools::mpiCheck(MPI_Waitall(27, receiveRequests.data(), MPI_STATUSES_IGNORE),
+                             "Synchronization at ghost cell update failed");
+      fsgrid_tools::mpiCheck(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
+                             "Synchronization at ghost cell update failed");
    }
 
    void updateGhostCells() { updateGhostCells(data); }
@@ -482,6 +500,10 @@ private:
    };
    //!< Lookup table from rank to index in the neighbour array
    const std::vector<char> neighbourRankToIndex = {};
+
+   //!< A bit mask, where nth bit is set, if nth neighbour is actually self
+   const fsgrid_tools::BitMask32 neighbourIsSelfBitMask = 0;
+
    //!< Datatype for sending data
    std::array<MPI_Datatype, 27> neighbourSendType = {};
    //!< Datatype for receiving data

@@ -5,10 +5,10 @@
 TEST(CoordinatesTest, singleRankCoordinates) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 1, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 1, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 1;
    constexpr int32_t numGhostCells = 1;
 
@@ -55,19 +55,19 @@ TEST(CoordinatesTest, singleRankCoordinates) {
 TEST(CoordinatesTest, neighbourIndex) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 20, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 20, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
    constexpr Coordinates coordinates(physicalGridSpacing, physicalGlobalStart, globalSize, periodic, decomposition,
                                      taskPosition, numRanks, numGhostCells);
 
-   constexpr std::array xs{-1, 0, coordinates.localSize[0] + 1};
-   constexpr std::array ys{-1, 0, coordinates.localSize[1] + 1};
-   constexpr std::array zs{-1, 0, coordinates.localSize[2] + 1};
+   constexpr std::array xs{-numGhostCells, 0, coordinates.localSize[0] + 2 * numGhostCells};
+   constexpr std::array ys{-numGhostCells, 0, coordinates.localSize[1] + 2 * numGhostCells};
+   constexpr std::array zs{-numGhostCells, 0, coordinates.localSize[2] + 2 * numGhostCells};
 
    size_t i = 0;
    for (auto x : xs) {
@@ -82,10 +82,10 @@ TEST(CoordinatesTest, neighbourIndex) {
 TEST(CoordinatesTest, shiftCellIndices) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 20, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 20, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
@@ -95,7 +95,7 @@ TEST(CoordinatesTest, shiftCellIndices) {
    constexpr std::array xs{-1, 0, coordinates.localSize[0] + 1};
    constexpr std::array ys{-1, 0, coordinates.localSize[1] + 1};
    constexpr std::array zs{-1, 0, coordinates.localSize[2] + 1};
-   constexpr std::array<std::array<FsGridTools::FsIndex_t, 3>, 27> values{
+   constexpr std::array<std::array<fsgrid_tools::FsIndex_t, 3>, 27> values{
        std::array{
            coordinates.localSize[0] - 1,
            coordinates.localSize[1] - 1,
@@ -250,10 +250,10 @@ TEST(CoordinatesTest, shiftCellIndices) {
 TEST(CoordinatesTest, indicesWithinDomain1) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 20, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 20, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
@@ -276,10 +276,10 @@ TEST(CoordinatesTest, indicesWithinDomain1) {
 TEST(CoordinatesTest, indicesWithinPeriodicDomain) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 1, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 1, 512};
    constexpr std::array<bool, 3> periodic{false, true, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
@@ -295,10 +295,10 @@ TEST(CoordinatesTest, indicesWithinPeriodicDomain) {
 TEST(CoordinatesTest, indicesNotWithinDomain) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 1, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 1, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
@@ -314,10 +314,10 @@ TEST(CoordinatesTest, indicesNotWithinDomain) {
 TEST(CoordinatesTest, indicesWithinNonPeriodicDomain) {
    constexpr std::array<double, 3> physicalGridSpacing{0.1, 0.1, 0.1};
    constexpr std::array<double, 3> physicalGlobalStart{0.0, 0.0, 0.0};
-   constexpr std::array<FsGridTools::FsSize_t, 3> globalSize{1024, 2, 512};
+   constexpr std::array<fsgrid_tools::FsSize_t, 3> globalSize{1024, 2, 512};
    constexpr std::array<bool, 3> periodic{false, false, false};
-   constexpr std::array<FsGridTools::Task_t, 3> decomposition{0, 0, 0};
-   constexpr std::array<FsGridTools::Task_t, 3> taskPosition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> decomposition{0, 0, 0};
+   constexpr std::array<fsgrid_tools::Task_t, 3> taskPosition{0, 0, 0};
    constexpr int32_t numRanks = 16;
    constexpr int32_t numGhostCells = 1;
 
