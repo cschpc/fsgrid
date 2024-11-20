@@ -376,13 +376,18 @@ public:
       fsgrid_tools::debugAssert(isSelf || neighbourRank != MPI_PROC_NULL,
                                 "Trying to access data from a non-existing neighbour");
 
-      const auto neighbourIsSelf = neighbourIndex != 13 && isSelf;
-      const auto id = neighbourIsSelf ? coordinates.localIDFromLocalCoordinates(coordinates.shiftCellIndices(x, y, z))
-                                      : coordinates.localIDFromLocalCoordinates(x, y, z);
+      const auto shouldShift = neighbourIndex != 13 && isSelf;
+      const auto id = shouldShift ? coordinates.localIDFromLocalCoordinates(coordinates.shiftCellIndices(x, y, z))
+                                  : coordinates.localIDFromLocalCoordinates(x, y, z);
 
       return coordinates.cellIndicesAreWithinBounds(x, y, z) && (isSelf || neighbourRank != MPI_PROC_NULL)
                  ? id
                  : std::numeric_limits<LocalID>::min();
+   }
+
+   int32_t shiftMultiplier(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
+      const auto neighbourIndex = coordinates.neighbourIndexFromCellCoordinates(x, y, z);
+      return static_cast<int32_t>(neighbourIndex != 13 && neighbourIsSelfBitMask[neighbourIndex]);
    }
 
    LocalID localIDFromCellCoordinates(const std::array<FsIndex_t, 3>& indices) const {

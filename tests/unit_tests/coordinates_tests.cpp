@@ -65,9 +65,9 @@ TEST(CoordinatesTest, neighbourIndex) {
    constexpr Coordinates coordinates(physicalGridSpacing, physicalGlobalStart, globalSize, periodic, decomposition,
                                      taskPosition, numRanks, numGhostCells);
 
-   constexpr std::array xs{-numGhostCells, 0, coordinates.localSize[0] + 2 * numGhostCells};
-   constexpr std::array ys{-numGhostCells, 0, coordinates.localSize[1] + 2 * numGhostCells};
-   constexpr std::array zs{-numGhostCells, 0, coordinates.localSize[2] + 2 * numGhostCells};
+   constexpr std::array xs{-numGhostCells, 0, coordinates.localSize[0] + 2 * numGhostCells - 1};
+   constexpr std::array ys{-numGhostCells, 0, coordinates.localSize[1] + 2 * numGhostCells - 1};
+   constexpr std::array zs{-numGhostCells, 0, coordinates.localSize[2] + 2 * numGhostCells - 1};
 
    size_t i = 0;
    for (auto x : xs) {

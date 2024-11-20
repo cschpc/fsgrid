@@ -185,44 +185,481 @@ TEST(FsGridTest, getTaskForGlobalID2) {
    ASSERT_EQ(0, task);
 }
 
-TEST(FsGridTest, localIDFromCellCoordinates1) {
-   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{11, 54, 1048};
+TEST(FsGridTest, shiftMultiplierNonperiodicXSplitOverX) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{1048, 5, 11};
    const MPI_Comm parentComm = MPI_COMM_WORLD;
-   const std::array<bool, 3> periodic{false, false, true};
+   const std::array<bool, 3> periodic{false, true, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       1, 1, 1,
+       1, 0, 1,
+       1, 1, 1,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicYSplitOverX) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{1048, 5, 11};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, false, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       1, 0, 1,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicZSplitOverX) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{1048, 5, 11};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, true, false};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicXSplitOverY) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{5, 1048, 11};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{false, true, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       1, 0, 1,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicYSplitOverY) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{5, 1048, 11};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, false, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       1, 1, 1,
+       0, 0, 0,
+       0, 0, 0,
+       1, 0, 1,
+       0, 0, 0,
+       0, 0, 0,
+       1, 1, 1,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicZSplitOverY) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{5, 1048, 11};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, true, false};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicXSplitOverZ) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{11, 5, 1048};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{false, true, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicYSplitOverZ) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{11, 5, 1048};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, false, true};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 0, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, shiftMultiplierNonperiodicZSplitOverZ) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{11, 5, 1048};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, true, false};
+   constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   const auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                  {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
+   const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
+   const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+
+   // clang-format off
+   constexpr std::array values = {
+       0, 1, 0,
+       0, 1, 0,
+       0, 1, 0,
+       0, 1, 0,
+       0, 0, 0,
+       0, 1, 0,
+       0, 1, 0,
+       0, 1, 0,
+       0, 1, 0,
+   };
+   // clang-format on
+
+   auto i = 0ul;
+   for (auto x : xs) {
+      for (auto y : ys) {
+         for (auto z : zs) {
+            [[maybe_unused]] const auto a = grid.shiftMultiplier(x, y, z);
+            if (grid.getRank() == 0) {
+               printf("%d\n", a);
+            }
+
+            if (grid.getRank() != -1) {
+               ASSERT_EQ(a, values[i++]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTest, localIDFromCellCoordinatesNonperiodicSplitOverX) {
+   const std::array<fsgrid_tools::FsSize_t, 3> globalSize{1048, 11, 5};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{false, false, false};
    constexpr int32_t numGhostCells = 2;
    auto numProcs = 8;
 
    auto grid = FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic, {0.0, 0.0, 0.0},
                                                             {0.0, 0.0, 0.0});
 
+   constexpr auto value = std::numeric_limits<fsgrid_tools::LocalID>::min();
+
    const auto localSize = grid.getLocalSize();
    const std::array xs{-numGhostCells, 0, localSize[0] + numGhostCells - 1};
    const std::array ys{-numGhostCells, 0, localSize[1] + numGhostCells - 1};
    const std::array zs{-numGhostCells, 0, localSize[2] + numGhostCells - 1};
+   const auto rank = grid.getRank();
 
-   // TODO: compute these values, then one can change the function to use the bitmask
-   const std::array values = {
-       0, numGhostCells * ((2 * numGhostCells + localSize[0]) * (2 * numGhostCells + localSize[1])),
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0, 0,
-       0,
+   // clang-format off
+   constexpr std::array valuesFirst = {
+       value, value, value,
+       value, value, value,
+       value, value, value,
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l + 2l, value,
+       value, value, value,
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l + 134l, value,
+       value, value, value,
    };
 
-   size_t i = 0;
+   constexpr std::array valuesRest = {
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l, value,
+       value, value, value,
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l + 2l, value,
+       value, value, value,
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l + 134l, value,
+       value, value, value,
+   };
+
+   constexpr std::array valuesLast = {
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l, value,
+       value, value, value,
+       value, value, value,
+       value, 135l * 15l * 2l + 135l * 2l + 2l, value,
+       value, value, value,
+       value, value, value,
+       value, value, value,
+       value, value, value,
+   };
+   // clang-format on
+
+   auto i = 0ul;
    for (auto x : xs) {
       for (auto y : ys) {
          for (auto z : zs) {
-            ASSERT_EQ(grid.localIDFromCellCoordinates(x, y, z), values[i++]);
+            [[maybe_unused]] const auto a = grid.localIDFromCellCoordinates(x, y, z);
+            if (rank != -1) {
+               if (rank == 0) {
+                  ASSERT_EQ(a, valuesFirst[i++]);
+               } else if (rank == numProcs - 1) {
+                  ASSERT_EQ(a, valuesLast[i++]);
+               } else {
+                  ASSERT_EQ(a, valuesRest[i++]);
+               }
+            }
          }
       }
    }
