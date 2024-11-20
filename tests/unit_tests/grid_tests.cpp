@@ -132,28 +132,30 @@ TEST(FsGridTest, xyzToLinearToxyz) {
 
 TEST(FsGridTest, allNeighboursAreSelf) {
    constexpr auto rank = 1;
+   // 13 is never self
    constexpr std::array<int32_t, 27> ranks = {
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
    };
 
-   for (auto i = 0u; i < 27u; i++) {
+   for (auto i = 0u; i < 13u; i++) {
+      ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[i], 1);
+   }
+
+   ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[13], 0);
+
+   for (auto i = 14u; i < 27u; i++) {
       ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[i], 1);
    }
 }
 
-TEST(FsGridTest, only13IsSelf) {
+TEST(FsGridTest, noneAreSelf) {
    constexpr auto rank = 0;
+   // 13 is never self
    constexpr std::array<int32_t, 27> ranks = {
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
    };
 
-   for (auto i = 0u; i < 13u; i++) {
-      ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[i], 0);
-   }
-
-   ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[13], 1);
-
-   for (auto i = 14u; i < 27u; i++) {
+   for (auto i = 0u; i < 27u; i++) {
       ASSERT_EQ(fsgrid_detail::makeNeigbourBitMask(rank, ranks)[i], 0);
    }
 }

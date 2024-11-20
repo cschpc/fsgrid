@@ -21,6 +21,7 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "coordinates.hpp"
+#include "fsstencil.hpp"
 #include "tools.hpp"
 
 #include <algorithm>
@@ -247,12 +248,49 @@ static fsgrid_tools::BitMask32 makeNeigbourBitMask(int32_t rank, const std::arra
       return static_cast<uint32_t>(neighbourIsSelf) << neighbourIndex;
    };
 
+   // Self is index 13, leave that bit to zero
    uint32_t bits = 0;
-   for (auto i = 0u; i < 27u; i++) {
+   for (auto i = 0u; i < 13u; i++) {
+      bits |= getNeighbourBit(i);
+   }
+
+   for (auto i = 14u; i < 27u; i++) {
       bits |= getNeighbourBit(i);
    }
 
    return fsgrid_tools::BitMask32(bits);
+}
+
+static fsgrid_tools::BitMask32 makeNeigbourIsNullBitMask(const std::array<int32_t, 27>& neighbourIndexToRank) {
+   auto getNeighbourBit = [&neighbourIndexToRank](uint32_t neighbourIndex) {
+      const auto neighbourRank = neighbourIndexToRank[neighbourIndex];
+      return static_cast<uint32_t>(neighbourRank == MPI_PROC_NULL) << neighbourIndex;
+   };
+
+   // Self is index 13, leave that bit to zero
+   uint32_t bits = 0;
+   for (auto i = 0u; i < 13u; i++) {
+      bits |= getNeighbourBit(i);
+   }
+
+   for (auto i = 14u; i < 27u; i++) {
+      bits |= getNeighbourBit(i);
+   }
+
+   return fsgrid_tools::BitMask32(bits);
+}
+
+static std::array<int32_t, 3> computeStencilMultipliers(const Coordinates& coordinates) {
+   return {
+       static_cast<int32_t>(coordinates.globalSize[0] > 1),
+       static_cast<int32_t>(coordinates.globalSize[1] > 1) * coordinates.storageSize[0],
+       static_cast<int32_t>(coordinates.globalSize[2] > 1) * coordinates.storageSize[0] * coordinates.storageSize[1],
+   };
+}
+
+static int32_t computeStencilOffset(const Coordinates& coordinates) {
+   const auto muls = computeStencilMultipliers(coordinates);
+   return coordinates.numGhostCells * (muls[0] + muls[1] + muls[2]);
 }
 
 } // namespace fsgrid_detail
@@ -289,7 +327,10 @@ public:
          neighbourIndexToRank(fsgrid_detail::mapNeigbourIndexToRank(
              fsgrid_detail::getTaskPosition(comm3d), coordinates.numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(fsgrid_detail::mapNeighbourRankToIndex(neighbourIndexToRank, numProcs)),
-         neighbourIsSelfBitMask(fsgrid_detail::makeNeigbourBitMask(rank, neighbourIndexToRank)),
+         stencilConstants(coordinates.localSize, fsgrid_detail::computeStencilMultipliers(coordinates),
+                          fsgrid_detail::computeStencilOffset(coordinates),
+                          fsgrid_detail::makeNeigbourBitMask(rank, neighbourIndexToRank),
+                          fsgrid_detail::makeNeigbourIsNullBitMask(neighbourIndexToRank)),
          neighbourSendType(
              fsgrid_detail::generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, true)),
          neighbourReceiveType(
@@ -360,6 +401,12 @@ public:
       return coordinates.physicalToFractionalGlobal(args...);
    }
 
+   // TODO: Make a comparison between the stencil index computation and the localIDFromCellCoordinates function
+   // This needs to happen at a higher level, since stencil knows about the center and can fallback to it, while this
+   // one doesn't Maybe a function to the test file that takes the center as input and returns 27 values as output This
+   // should be done for both methods and then compared. The function for this old method needs to manually fall back to
+   // center if index is garbage
+
    /*! Compute the local id from cell coordinates (these include ghost cells)
     * \param x x-Coordinate, in cells
     * \param y y-Coordinate, in cells
@@ -383,11 +430,6 @@ public:
       return coordinates.cellIndicesAreWithinBounds(x, y, z) && (isSelf || neighbourRank != MPI_PROC_NULL)
                  ? id
                  : std::numeric_limits<LocalID>::min();
-   }
-
-   int32_t shiftMultiplier(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      const auto neighbourIndex = coordinates.neighbourIndexFromCellCoordinates(x, y, z);
-      return static_cast<int32_t>(neighbourIndex != 13 && neighbourIsSelfBitMask[neighbourIndex]);
    }
 
    LocalID localIDFromCellCoordinates(const std::array<FsIndex_t, 3>& indices) const {
@@ -506,8 +548,8 @@ private:
    //!< Lookup table from rank to index in the neighbour array
    const std::vector<char> neighbourRankToIndex = {};
 
-   //!< A bit mask, where nth bit is set, if nth neighbour is actually self
-   const fsgrid_tools::BitMask32 neighbourIsSelfBitMask = 0;
+   //!< Type containing data computed from FsGrid values that are constant for all stencils
+   const fsgrid::StencilConstants stencilConstants = {};
 
    //!< Datatype for sending data
    std::array<MPI_Datatype, 27> neighbourSendType = {};
