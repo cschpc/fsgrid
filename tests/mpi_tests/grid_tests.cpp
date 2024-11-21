@@ -336,11 +336,36 @@ template <typename T> static std::array<size_t, 27> makeLocalIDsNew(const T& fsg
    return arr;
 }
 
-TEST(FsGridTEst, compareLocalIDs) {
+TEST(FsGridTEst, compareLocalIDsNonperiodic) {
    const std::array<fsgrid::FsSize_t, 3> globalSize{1048, 11, 5};
    const MPI_Comm parentComm = MPI_COMM_WORLD;
    const std::array<bool, 3> periodic{false, false, false};
    constexpr int32_t numGhostCells = 2;
+   auto numProcs = 8;
+
+   auto grid = fsgrid::FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
+                                                                    {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto localSize = grid.getLocalSize();
+   for (auto x = 0; x < localSize[0]; x++) {
+      for (auto y = 0; y < localSize[1]; y++) {
+         for (auto z = 0; z < localSize[2]; z++) {
+
+            const auto oldv = makeLocalIDsOld(grid, x, y, z);
+            const auto newv = makeLocalIDsNew(grid, x, y, z);
+
+            for (size_t i = 0; i < oldv.size(); i++) {
+               ASSERT_EQ(oldv[i], newv[i]);
+            }
+         }
+      }
+   }
+}
+
+TEST(FsGridTEst, compareLocalIDsPeriodic) {
+   const std::array<fsgrid::FsSize_t, 3> globalSize{1048, 11, 6};
+   const MPI_Comm parentComm = MPI_COMM_WORLD;
+   const std::array<bool, 3> periodic{true, true, true};
+   constexpr int32_t numGhostCells = 6;
    auto numProcs = 8;
 
    auto grid = fsgrid::FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
