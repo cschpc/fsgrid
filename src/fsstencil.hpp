@@ -21,76 +21,194 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "tools.hpp"
-
 #include <array>
+#include <cstddef>
+#include <cstdint>
 
 namespace fsgrid {
+struct BitMask32 {
+   constexpr BitMask32(uint32_t bits) : bits(bits) {}
+   constexpr uint32_t operator[](uint32_t i) const { return i < 32u ? (bits & (1u << i)) >> i : 0u; }
 
-// This is constructed during FsGrid construction time
+private:
+   const uint32_t bits = 0u;
+};
+
 struct StencilConstants {
    const std::array<int32_t, 3> limits = {};
    const std::array<int32_t, 3> multipliers = {};
    const int32_t offset = 0;
-   const fsgrid_tools::BitMask32 shift = 0;
-   const fsgrid_tools::BitMask32 fallbackToCenter = 0;
+   const BitMask32 shift = 0;
+   const BitMask32 fallbackToCenter = 0;
 
    constexpr StencilConstants(const std::array<int32_t, 3>& limits, const std::array<int32_t, 3>& multipliers,
-                              int32_t offset, fsgrid_tools::BitMask32 shift, fsgrid_tools::BitMask32 fallbackToCenter)
+                              int32_t offset, BitMask32 shift, BitMask32 fallbackToCenter)
        : limits(limits), multipliers(multipliers), offset(offset), shift(shift), fallbackToCenter(fallbackToCenter) {}
    constexpr StencilConstants() {}
 };
 
-// TODO: Add center(), left() etc. functions
 struct FsStencil {
 private:
-   const std::array<int32_t, 3> centerCell = {};
+   const int32_t i = 0;
+   const int32_t j = 0;
+   const int32_t k = 0;
    const StencilConstants constants = {};
 
 public:
-   constexpr FsStencil(const std::array<int32_t, 3>& centerCell, const StencilConstants& constants)
-       : centerCell(centerCell), constants(constants) {}
+   constexpr FsStencil(int32_t i, int32_t j, int32_t k, const StencilConstants& constants)
+       : i(i), j(j), k(k), constants(constants) {}
 
-   constexpr std::array<int32_t, 3> localityMultipliers(const std::array<int32_t, 3>& values) const {
-      return {
-          (values[0] >= constants.limits[0]) - (values[0] < 0),
-          (values[1] >= constants.limits[1]) - (values[1] < 0),
-          (values[2] >= constants.limits[2]) - (values[2] < 0),
-      };
-   }
+   // clang-format off
+   // These names come from the right hand rule, with
+   // - x horizontal (left right)
+   // - y vertical   (down up)
+   // - z on the line of sight (far near)
+   //
+   //            up
+   //             |
+   //             |  far
+   //             | /
+   //             |/
+   //  left ------o------ right
+   //            /|
+   //           / | 
+   //       near  |
+   //             |
+   //            down
 
-   constexpr uint32_t neighbourIndex(const std::array<int32_t, 3>& values) const {
-      return static_cast<uint32_t>(13 + values[0] * 9 + values[1] * 3 + values[2]);
-   }
+   constexpr size_t center() const          { return calculateIndex({i,     j    , k    }); }
+   constexpr size_t near() const            { return calculateIndex({i,     j    , k + 1}); }
+   constexpr size_t far()  const            { return calculateIndex({i,     j    , k - 1}); }
 
-   constexpr std::array<int32_t, 3> shiftOffsets(const std::array<int32_t, 3>& values) const {
-      return {
-          -values[0] * static_cast<int32_t>(constants.limits[0]),
-          -values[1] * static_cast<int32_t>(constants.limits[1]),
-          -values[2] * static_cast<int32_t>(constants.limits[2]),
-      };
-   }
+   constexpr size_t up()  const             { return calculateIndex({i,     j + 1, k    }); }
+   constexpr size_t upnear() const          { return calculateIndex({i,     j + 1, k + 1}); }
+   constexpr size_t upfar() const           { return calculateIndex({i,     j + 1, k - 1}); }
 
-   constexpr size_t applyMultipliersAndOffset(const std::array<int32_t, 3>& values) const {
-      return static_cast<size_t>(constants.offset + constants.multipliers[0] * values[0] +
-                                 constants.multipliers[1] * values[1] + constants.multipliers[2] * values[2]);
-   }
+   constexpr size_t down() const            { return calculateIndex({i,     j - 1, k    }); }
+   constexpr size_t downnear() const        { return calculateIndex({i,     j - 1, k + 1}); }
+   constexpr size_t downfar() const         { return calculateIndex({i,     j - 1, k - 1}); }
 
+   constexpr size_t right() const           { return calculateIndex({i + 1, j    , k    }); }
+   constexpr size_t rightnear() const       { return calculateIndex({i + 1, j    , k + 1}); }
+   constexpr size_t rightfar() const        { return calculateIndex({i + 1, j    , k - 1}); }
+
+   constexpr size_t rightup() const         { return calculateIndex({i + 1, j + 1, k    }); }
+   constexpr size_t rightupnear() const     { return calculateIndex({i + 1, j + 1, k + 1}); }
+   constexpr size_t rightupfar() const      { return calculateIndex({i + 1, j + 1, k - 1}); }
+
+   constexpr size_t rightdown() const       { return calculateIndex({i + 1, j - 1, k    }); }
+   constexpr size_t rightdownnear() const   { return calculateIndex({i + 1, j - 1, k + 1}); }
+   constexpr size_t rightdownfar() const    { return calculateIndex({i + 1, j - 1, k - 1}); }
+
+   constexpr size_t left() const            { return calculateIndex({i - 1, j    , k    }); }
+   constexpr size_t leftnear() const        { return calculateIndex({i - 1, j    , k + 1}); }
+   constexpr size_t leftfar() const         { return calculateIndex({i - 1, j    , k - 1}); }
+
+   constexpr size_t leftup() const          { return calculateIndex({i - 1, j + 1, k    }); }
+   constexpr size_t leftupnear() const      { return calculateIndex({i - 1, j + 1, k + 1}); }
+   constexpr size_t leftupfar() const       { return calculateIndex({i - 1, j + 1, k - 1}); }
+
+   constexpr size_t leftdown() const        { return calculateIndex({i - 1, j - 1, k    }); }
+   constexpr size_t leftdownnear() const    { return calculateIndex({i - 1, j - 1, k + 1}); }
+   constexpr size_t leftdownfar() const     { return calculateIndex({i - 1, j - 1, k - 1}); }
+   // clang-format on
+
+private:
    constexpr size_t calculateIndex(std::array<int32_t, 3> cellIndex) const {
-      const auto locality = localityMultipliers(cellIndex);                       // -1, 0, 1
-      const auto ni = neighbourIndex(locality);                                   // 0-26
-      const auto fallback = static_cast<int32_t>(constants.fallbackToCenter[ni]); // 0, 1
-      const auto valid = fallback ^ 1;                                            // Opposite of fallback
-      const auto addOffset = static_cast<int32_t>(constants.shift[ni]);           // 0, 1
-      const auto offsets = shiftOffsets(locality);                                // -limits, 0, limits
-
-      // If the given cell indices are valid, we'll check if the indices need to be shifted, and if so, we'll add
-      // the offsets. Else we'll fall back to the center cell of the stencil.
-      cellIndex[0] = valid * (cellIndex[0] + addOffset * offsets[0]) + fallback * centerCell[0];
-      cellIndex[1] = valid * (cellIndex[1] + addOffset * offsets[1]) + fallback * centerCell[1];
-      cellIndex[2] = valid * (cellIndex[2] + addOffset * offsets[2]) + fallback * centerCell[2];
+      const auto no = neighbourOffset(cellIndex);
+      const auto ni = neighbourIndex(no);
+      cellIndex = fallback(offsetValues(cellIndex, no, ni), ni);
 
       return applyMultipliersAndOffset(cellIndex);
+   }
+
+   constexpr std::array<int32_t, 3> neighbourOffset(const std::array<int32_t, 3>& cellIndex) const {
+      // clang-format off
+      // A triplet of (-, 0, +) values, with 27 possibilities
+      // The value for a coordinate is
+      // - if the coordinate is below zero,
+      // 0 if it's within bounds, or
+      // + if it's at or above limit
+      //
+      // Visualized as 2D slices:
+      // (values on the charts indicate (xyz) in order)
+      //
+      //     +Z plane
+      // y
+      // ^ -++  0++  +++
+      // | -0+  00+  +0+
+      // | --+  0-+  +-+
+      // o-------------->x
+      //
+      //     0Z plane
+      // y
+      // ^ -+0  0+0  ++0
+      // | -00  000  +00
+      // | --0  0-0  +-0
+      // o-------------->x
+      //
+      //     -Z plane
+      // y
+      // ^ -+-  0+-  ++-
+      // | -0-  00-  +0-
+      // | ---  0--  +--
+      // o-------------->x
+      //
+      // clang-format on
+      return {
+          (cellIndex[0] >= constants.limits[0]) - (cellIndex[0] < 0),
+          (cellIndex[1] >= constants.limits[1]) - (cellIndex[1] < 0),
+          (cellIndex[2] >= constants.limits[2]) - (cellIndex[2] < 0),
+      };
+   }
+
+   constexpr uint32_t neighbourIndex(const std::array<int32_t, 3>& no) const {
+      // Translate a triplet of (-, 0, +) values to a single value between 0 and 26
+      // - 0 is at (---) corner
+      // - 13 is at (000) i.e. center
+      // - 26 is at (+++) corner
+      // - z changes fastest, then y, then x
+      return static_cast<uint32_t>(13 + no[0] * 9 + no[1] * 3 + no[2]);
+   }
+
+   constexpr std::array<int32_t, 3> offsetValues(const std::array<int32_t, 3>& cellIndex,
+                                                 const std::array<int32_t, 3>& no, uint32_t ni) const {
+      // If the shift bit is 1 for neighbour index 'ni', add an offset to the given values
+      const auto addOffset = static_cast<int32_t>(constants.shift[ni]);
+      const auto offsets = shiftOffsets(no);
+      return {
+          cellIndex[0] + addOffset * offsets[0],
+          cellIndex[1] + addOffset * offsets[1],
+          cellIndex[2] + addOffset * offsets[2],
+      };
+   }
+
+   constexpr std::array<int32_t, 3> shiftOffsets(const std::array<int32_t, 3>& no) const {
+      // -limit, if the neihbour offset 'no' is +
+      // 0, if the neihbour offset is 0
+      // +limit, if neihbour offset is -
+      return {
+          -no[0] * constants.limits[0],
+          -no[1] * constants.limits[1],
+          -no[2] * constants.limits[2],
+      };
+   }
+
+   constexpr std::array<int32_t, 3> fallback(const std::array<int32_t, 3>& cellIndex, uint32_t ni) const {
+      // If the cellIndex is invalid, we'll use the center cell, i.e. (i, j, k)
+      const auto invalid = static_cast<int32_t>(constants.fallbackToCenter[ni]);
+      const auto valid = invalid ^ 1;
+      return {
+          valid * cellIndex[0] + invalid * i,
+          valid * cellIndex[1] + invalid * j,
+          valid * cellIndex[2] + invalid * k,
+      };
+   }
+
+   constexpr size_t applyMultipliersAndOffset(const std::array<int32_t, 3>& cellIndex) const {
+      // A dot product between cellIndex and constants.multipliers + an offset
+      return static_cast<size_t>(constants.offset + constants.multipliers[0] * cellIndex[0] +
+                                 constants.multipliers[1] * cellIndex[1] + constants.multipliers[2] * cellIndex[2]);
    }
 };
 } // namespace fsgrid

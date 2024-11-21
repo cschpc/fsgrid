@@ -28,7 +28,7 @@
 #include <stdexcept>
 #include <stdint.h>
 
-namespace fsgrid_tools {
+namespace fsgrid {
 // Size type for global array indices
 typedef uint32_t FsSize_t;
 // Size type for global/local array indices, incl. possible negative values
@@ -176,12 +176,4 @@ template <typename... Args> void debugAssert([[maybe_unused]] bool condition, [[
    writeToCerrAndThrowIfFailed(condition, args...);
 #endif
 }
-
-struct BitMask32 {
-   constexpr BitMask32(uint32_t bits) : bits(bits) {}
-   constexpr uint32_t operator[](uint32_t i) const { return i < 32u ? (bits & (1u << i)) >> i : 0u; }
-
-private:
-   const uint32_t bits = 0u;
-};
-} // namespace fsgrid_tools
+} // namespace fsgrid
