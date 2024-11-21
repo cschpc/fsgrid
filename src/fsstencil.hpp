@@ -28,7 +28,13 @@
 namespace fsgrid {
 struct BitMask32 {
    constexpr BitMask32(uint32_t bits) : bits(bits) {}
-   constexpr uint32_t operator[](uint32_t i) const { return i < 32u ? (bits & (1u << i)) >> i : 0u; }
+   constexpr uint32_t operator[](uint32_t i) const {
+      // Shifting by more than N - 1 is undefined behaviour for N bit values
+      constexpr uint32_t n = sizeof(bits) * 8;
+      const uint32_t mul = i < n;
+      i &= n - 1;
+      return mul * ((bits & (1u << i)) >> i);
+   }
 
 private:
    const uint32_t bits = 0u;
