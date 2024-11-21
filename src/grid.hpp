@@ -429,6 +429,8 @@ public:
       return tasks[static_cast<size_t>(i)];
    }
 
+   FsStencil makeStencil(int32_t x, int32_t y, int32_t z) const { return FsStencil(x, y, z, stencilConstants); }
+
    // ============================
    // Getters
    // ============================
