@@ -385,12 +385,6 @@ public:
       return coordinates.physicalToFractionalGlobal(args...);
    }
 
-   // TODO: Make a comparison between the stencil index computation and the localIDFromCellCoordinates function
-   // This needs to happen at a higher level, since stencil knows about the center and can fallback to it, while this
-   // one doesn't Maybe a function to the test file that takes the center as input and returns 27 values as output This
-   // should be done for both methods and then compared. The function for this old method needs to manually fall back to
-   // center if index is garbage
-
    /*! Compute the local id from cell coordinates (these include ghost cells)
     * \param x x-Coordinate, in cells
     * \param y y-Coordinate, in cells
@@ -447,6 +441,10 @@ public:
    // MPI functions
    // ============================
 
+   // TODO: make a version that takes in a structure containing:
+   // - span of data
+   // - MPI send type
+   // - MPI receive type
    /*! Perform ghost cell communication.
     */
    template <typename D> void updateGhostCells(D& data) {
