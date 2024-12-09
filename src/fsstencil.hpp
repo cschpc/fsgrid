@@ -119,6 +119,12 @@ public:
    constexpr size_t leftdownfar() const     { return calculateIndex({i - 1, j - 1, k - 1}); }
    // clang-format on
 
+   constexpr bool cellExists(int32_t io, int32_t jo, int32_t ko) const {
+      const auto no = neighbourOffset({i + io, j + jo, k + ko});
+      const auto ni = neighbourIndex(no);
+      return static_cast<int32_t>(constants.fallbackToCenter[ni]) == 0;
+   }
+
 private:
    constexpr size_t calculateIndex(std::array<int32_t, 3> cellIndex) const {
       const auto no = neighbourOffset(cellIndex);

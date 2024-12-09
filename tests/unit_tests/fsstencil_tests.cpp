@@ -37,3 +37,33 @@ TEST(BitMaskTest, tooLargeIndexGivesZero) {
    constexpr fsgrid::BitMask32 mask(~0u);
    ASSERT_EQ(mask[32], 0);
 }
+
+TEST(FsStencilTest, cellExistsWhenFallBackBitsAreZero) {
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0);
+   constexpr fsgrid::FsStencil s(0, 0, 0, sc);
+
+   for (int32_t x = -1; x < 2; x++) {
+      for (int32_t y = -1; y < 2; y++) {
+         for (int32_t z = -1; z < 2; z++) {
+            ASSERT_TRUE(s.cellExists(x, y, z));
+         }
+      }
+   }
+}
+
+TEST(FsStencilTest, onlyCenterExistsWhenAllFallbackBitsButCenterAreOne) {
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0b00000111111111111101111111111111);
+   constexpr fsgrid::FsStencil s(0, 0, 0, sc);
+
+   for (int32_t x = -1; x < 2; x++) {
+      for (int32_t y = -1; y < 2; y++) {
+         for (int32_t z = -1; z < 2; z++) {
+            if (x == 0 && y == 0 && z == 0) {
+               ASSERT_TRUE(s.cellExists(x, y, z));
+            } else {
+               ASSERT_FALSE(s.cellExists(x, y, z));
+            }
+         }
+      }
+   }
+}
