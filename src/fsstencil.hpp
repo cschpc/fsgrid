@@ -125,6 +125,42 @@ public:
       return static_cast<int32_t>(constants.fallbackToCenter[ni]) == 0;
    }
 
+   constexpr std::array<size_t, 27> indices() const {
+      // Return an array containing all indices
+      // x changes fastest, then y, then z
+      // clang-format off
+       return {
+           calculateIndex({i - 1, j - 1, k - 1}),
+           calculateIndex({i    , j - 1, k - 1}),
+           calculateIndex({i + 1, j - 1, k - 1}),
+           calculateIndex({i - 1, j    , k - 1}),
+           calculateIndex({i    , j    , k - 1}),
+           calculateIndex({i + 1, j    , k - 1}),
+           calculateIndex({i - 1, j + 1, k - 1}),
+           calculateIndex({i    , j + 1, k - 1}),
+           calculateIndex({i + 1, j + 1, k - 1}),
+           calculateIndex({i - 1, j - 1, k    }),
+           calculateIndex({i    , j - 1, k    }),
+           calculateIndex({i + 1, j - 1, k    }),
+           calculateIndex({i - 1, j    , k    }),
+           calculateIndex({i    , j    , k    }),
+           calculateIndex({i + 1, j    , k    }),
+           calculateIndex({i - 1, j + 1, k    }),
+           calculateIndex({i    , j + 1, k    }),
+           calculateIndex({i + 1, j + 1, k    }),
+           calculateIndex({i - 1, j - 1, k + 1}),
+           calculateIndex({i    , j - 1, k + 1}),
+           calculateIndex({i + 1, j - 1, k + 1}),
+           calculateIndex({i - 1, j    , k + 1}),
+           calculateIndex({i    , j    , k + 1}),
+           calculateIndex({i + 1, j    , k + 1}),
+           calculateIndex({i - 1, j + 1, k + 1}),
+           calculateIndex({i    , j + 1, k + 1}),
+           calculateIndex({i + 1, j + 1, k + 1}),
+       };
+      // clang-format on
+   }
+
 private:
    constexpr size_t calculateIndex(std::array<int32_t, 3> cellIndex) const {
       const auto no = neighbourOffset(cellIndex);

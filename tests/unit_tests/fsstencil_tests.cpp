@@ -67,3 +67,39 @@ TEST(FsStencilTest, onlyCenterExistsWhenAllFallbackBitsButCenterAreOne) {
       }
    }
 }
+
+TEST(FsStencilTest, indicesAreCorrect1) {
+   // 3x3x3 cube with no ghost cells
+   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 3, 9}, 0, 0, 0);
+   constexpr fsgrid::FsStencil s(1, 1, 1, sc);
+
+   size_t j = 0;
+   for (const auto& i : s.indices()) {
+      ASSERT_EQ(i, j++);
+   }
+}
+
+TEST(FsStencilTest, indicesAreCorrect2) {
+   // 3x3x3 cube with 1 ghost cell everywhere, so 5x5x5 cube with ghost cells
+   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 5, 25}, 0, 0, 0);
+   constexpr fsgrid::FsStencil s(1, 1, 1, sc);
+
+   // clang-format off
+   constexpr std::array indices = {
+       0, 1, 2,
+       5, 6, 7,
+       10, 11, 12,
+       25, 26, 27,
+       30, 31, 32,
+       35, 36, 37,
+       50, 51, 52,
+       55, 56, 57,
+       60, 61, 62,
+   };
+   // clang-format on
+
+   size_t j = 0;
+   for (const auto& i : s.indices()) {
+      ASSERT_EQ(i, indices[j++]);
+   }
+}
