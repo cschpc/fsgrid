@@ -54,10 +54,11 @@ struct StencilConstants {
 };
 
 struct FsStencil {
-private:
    const int32_t i = 0;
    const int32_t j = 0;
    const int32_t k = 0;
+
+private:
    const StencilConstants constants = {};
 
 public:
