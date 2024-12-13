@@ -38,8 +38,8 @@ TEST(BitMaskTest, tooLargeIndexGivesZero) {
    ASSERT_EQ(mask[32], 0);
 }
 
-TEST(FsStencilTest, cellExistsWhenFallBackBitsAreZero) {
-   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0);
+TEST(FsStencilTest, cellExistsWhenFallBackBitsAreZeroAndNumGhostCellsIsOne) {
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 1, 0, 0);
    constexpr fsgrid::FsStencil s(0, 0, 0, sc);
 
    for (int32_t x = -1; x < 2; x++) {
@@ -51,8 +51,42 @@ TEST(FsStencilTest, cellExistsWhenFallBackBitsAreZero) {
    }
 }
 
+TEST(FsStencilTest, cellDoesNotExistWhenFallBackBitsAreZeroAndNumGhostCellsIsZero) {
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0, 0);
+   constexpr fsgrid::FsStencil s(0, 0, 0, sc);
+
+   for (int32_t x = -1; x < 2; x++) {
+      for (int32_t y = -1; y < 2; y++) {
+         for (int32_t z = -1; z < 2; z++) {
+            if (x == 0 && y == 0 && z == 0) {
+               ASSERT_TRUE(s.cellExists(x, y, z));
+            } else {
+               ASSERT_FALSE(s.cellExists(x, y, z));
+            }
+         }
+      }
+   }
+}
+
+TEST(FsStencilTest, cellDoesNotExistsWhenFallBackBitsAreZeroAndNumGhostCellsIsOne) {
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 1, 0, 0);
+   constexpr fsgrid::FsStencil s(0, 0, 0, sc);
+
+   for (int32_t x = -2; x < 3; x++) {
+      for (int32_t y = -2; y < 3; y++) {
+         for (int32_t z = -2; z < 3; z++) {
+            if (abs(x) < 2 && abs(y) < 2 && abs(z) < 2) {
+               ASSERT_TRUE(s.cellExists(x, y, z));
+            } else {
+               ASSERT_FALSE(s.cellExists(x, y, z));
+            }
+         }
+      }
+   }
+}
+
 TEST(FsStencilTest, onlyCenterExistsWhenAllFallbackBitsButCenterAreOne) {
-   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0b00000111111111111101111111111111);
+   constexpr fsgrid::StencilConstants sc({1, 1, 1}, {0, 0, 0}, 0, 0, 0, 0b00000111111111111101111111111111);
    constexpr fsgrid::FsStencil s(0, 0, 0, sc);
 
    for (int32_t x = -1; x < 2; x++) {
@@ -70,7 +104,7 @@ TEST(FsStencilTest, onlyCenterExistsWhenAllFallbackBitsButCenterAreOne) {
 
 TEST(FsStencilTest, indicesAreCorrect1) {
    // 3x3x3 cube with no ghost cells
-   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 3, 9}, 0, 0, 0);
+   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 3, 9}, 0, 0, 0, 0);
    constexpr fsgrid::FsStencil s(1, 1, 1, sc);
 
    size_t j = 0;
@@ -81,7 +115,7 @@ TEST(FsStencilTest, indicesAreCorrect1) {
 
 TEST(FsStencilTest, indicesAreCorrect2) {
    // 3x3x3 cube with 1 ghost cell everywhere, so 5x5x5 cube with ghost cells
-   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 5, 25}, 0, 0, 0);
+   constexpr fsgrid::StencilConstants sc({3, 3, 3}, {1, 5, 25}, 0, 1, 0, 0);
    constexpr fsgrid::FsStencil s(1, 1, 1, sc);
 
    // clang-format off

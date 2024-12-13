@@ -44,12 +44,14 @@ struct StencilConstants {
    const std::array<int32_t, 3> limits = {};
    const std::array<int32_t, 3> multipliers = {};
    const int32_t offset = 0;
+   const int32_t numGhostCells = 0;
    const BitMask32 shift = 0;
    const BitMask32 fallbackToCenter = 0;
 
    constexpr StencilConstants(const std::array<int32_t, 3>& limits, const std::array<int32_t, 3>& multipliers,
-                              int32_t offset, BitMask32 shift, BitMask32 fallbackToCenter)
-       : limits(limits), multipliers(multipliers), offset(offset), shift(shift), fallbackToCenter(fallbackToCenter) {}
+                              int32_t offset, int32_t numGhostCells, BitMask32 shift, BitMask32 fallbackToCenter)
+       : limits(limits), multipliers(multipliers), offset(offset), numGhostCells(numGhostCells), shift(shift),
+         fallbackToCenter(fallbackToCenter) {}
    constexpr StencilConstants() {}
 };
 
@@ -121,9 +123,15 @@ public:
    // clang-format on
 
    constexpr bool cellExists(int32_t io, int32_t jo, int32_t ko) const {
-      const auto no = neighbourOffset({i + io, j + jo, k + ko});
+      const auto x = i + io;
+      const auto y = j + jo;
+      const auto z = k + ko;
+      const auto no = neighbourOffset({x, y, z});
       const auto ni = neighbourIndex(no);
-      return static_cast<int32_t>(constants.fallbackToCenter[ni]) == 0;
+      return -constants.numGhostCells <= x && x < constants.limits[0] + constants.numGhostCells &&
+             -constants.numGhostCells <= y && y < constants.limits[1] + constants.numGhostCells &&
+             -constants.numGhostCells <= z && z < constants.limits[2] + constants.numGhostCells &&
+             static_cast<int32_t>(constants.fallbackToCenter[ni]) == 0;
    }
 
    constexpr std::array<size_t, 27> indices() const {
@@ -162,6 +170,11 @@ public:
       // clang-format on
    }
 
+   constexpr size_t indexFromOffset(int32_t io, int32_t jo, int32_t ko) const {
+      return calculateIndex({i + io, j + jo, k + ko});
+   }
+
+private:
    constexpr size_t calculateIndex(std::array<int32_t, 3> cellIndex) const {
       const auto no = neighbourOffset(cellIndex);
       const auto ni = neighbourIndex(no);
@@ -170,7 +183,6 @@ public:
       return applyMultipliersAndOffset(cellIndex);
    }
 
-private:
    constexpr std::array<int32_t, 3> neighbourOffset(const std::array<int32_t, 3>& cellIndex) const {
       // clang-format off
       // A triplet of (-, 0, +) values, with 27 possibilities

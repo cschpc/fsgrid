@@ -315,7 +315,7 @@ public:
              mapNeigbourIndexToRank(getTaskPosition(comm3d), coordinates.numTasksPerDim, periodic, comm3d, rank)),
          neighbourRankToIndex(mapNeighbourRankToIndex(neighbourIndexToRank, numProcs)),
          stencilConstants(coordinates.localSize, computeStencilMultipliers(coordinates),
-                          computeStencilOffset(coordinates), makeNeigbourBitMask(rank, neighbourIndexToRank),
+                          computeStencilOffset(coordinates), stencil, makeNeigbourBitMask(rank, neighbourIndexToRank),
                           makeNeigbourIsNullBitMask(neighbourIndexToRank)),
          neighbourSendType(generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, true)),
          neighbourReceiveType(generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, false)),
