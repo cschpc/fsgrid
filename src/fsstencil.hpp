@@ -162,7 +162,6 @@ public:
       // clang-format on
    }
 
-private:
    constexpr size_t calculateIndex(std::array<int32_t, 3> cellIndex) const {
       const auto no = neighbourOffset(cellIndex);
       const auto ni = neighbourIndex(no);
@@ -171,6 +170,7 @@ private:
       return applyMultipliersAndOffset(cellIndex);
    }
 
+private:
    constexpr std::array<int32_t, 3> neighbourOffset(const std::array<int32_t, 3>& cellIndex) const {
       // clang-format off
       // A triplet of (-, 0, +) values, with 27 possibilities
