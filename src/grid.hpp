@@ -347,22 +347,6 @@ public:
    std::vector<T>& getData() { return data; }
    const std::vector<T>& getData() const { return data; }
 
-   bool localIdInBounds(LocalID id) const { return 0 <= id && (size_t)id < data.size(); }
-
-   T* get(LocalID id) {
-      debugAssert(localIdInBounds(id), "Out-of bounds access in FsGrid::get!", "(LocalID = ", id,
-                  ", but storage space is ", data.size(), ". Expect weirdness.");
-      return localIdInBounds(id) ? &data[static_cast<size_t>(id)] : nullptr;
-   }
-
-   /*! Get a reference to the field data in a cell
-    * \param x x-Coordinate, in cells
-    * \param y y-Coordinate, in cells
-    * \param z z-Coordinate, in cells
-    * \return A reference to cell data in the given cell
-    */
-   T* get(FsIndex_t x, FsIndex_t y, FsIndex_t z) { return get(localIDFromCellCoordinates(x, y, z)); }
-
    // ============================
    // Coordinate change functions
    // - Redirected to Coordinates' implementation
@@ -383,33 +367,6 @@ public:
    }
    template <typename... Args> auto physicalToFractionalGlobal(Args... args) const {
       return coordinates.physicalToFractionalGlobal(args...);
-   }
-
-   /*! Compute the local id from cell coordinates (these include ghost cells)
-    * \param x x-Coordinate, in cells
-    * \param y y-Coordinate, in cells
-    * \param z z-Coordinate, in cells
-    * \return local id of the cell
-    */
-   LocalID localIDFromCellCoordinates(FsIndex_t x, FsIndex_t y, FsIndex_t z) const {
-      debugAssert(coordinates.cellIndicesAreWithinBounds(x, y, z), "Out-of bounds access in FsGrid::get!");
-      const auto neighbourIndex = coordinates.neighbourIndexFromCellCoordinates(x, y, z);
-      const auto neighbourRank = neighbourIndexToRank[neighbourIndex];
-      const auto isSelf = neighbourRank == rank;
-
-      debugAssert(isSelf || neighbourRank != MPI_PROC_NULL, "Trying to access data from a non-existing neighbour");
-
-      const auto shouldShift = neighbourIndex != 13 && isSelf;
-      const auto id = shouldShift ? coordinates.localIDFromLocalCoordinates(coordinates.shiftCellIndices(x, y, z))
-                                  : coordinates.localIDFromLocalCoordinates(x, y, z);
-
-      return coordinates.cellIndicesAreWithinBounds(x, y, z) && (isSelf || neighbourRank != MPI_PROC_NULL)
-                 ? id
-                 : std::numeric_limits<LocalID>::min();
-   }
-
-   LocalID localIDFromCellCoordinates(const std::array<FsIndex_t, 3>& indices) const {
-      return localIDFromCellCoordinates(indices[0], indices[1], indices[2]);
    }
 
    /*! Returns the task responsible for handling the cell with the given GlobalID
