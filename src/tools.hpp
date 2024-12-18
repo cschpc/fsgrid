@@ -131,10 +131,10 @@ constexpr static std::array<Task_t, 3> computeDomainDecomposition(const std::arr
          const int64_t baseCost = (i > 1 ? processBox[1] * processBox[2] : 0)
                                 + (j > 1 ? processBox[0] * processBox[2] : 0)
                                 + (k > 1 ? processBox[0] * processBox[1] : 0);
-         const int64_t neighborMultiplier = (i != 1 && j != 1 && k != 1) * 13
-                                          + (i == 1 && j != 1 && k != 1) * 4
-                                          + (i != 1 && j == 1 && k != 1) * 4
-                                          + (i != 1 && j != 1 && k == 1) * 4;
+         const int64_t neighborMultiplier = ((i != 1 && j != 1 && k != 1) ? 13 : 1)
+                                          * ((i == 1 && j != 1 && k != 1) ? 4 : 1)
+                                          * ((i != 1 && j == 1 && k != 1) ? 4 : 1)
+                                          * ((i != 1 && j != 1 && k == 1) ? 4 : 1);
          // clang-format on
          const int64_t cost = baseCost * neighborMultiplier;
          if (cost < minimumCost) {
