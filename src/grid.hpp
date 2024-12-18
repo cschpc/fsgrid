@@ -33,6 +33,7 @@
 #include <limits>
 #include <mpi.h>
 #include <numeric>
+#include <span>
 #include <vector>
 
 namespace fsgrid_detail {
@@ -317,24 +318,42 @@ public:
          stencilConstants(coordinates.localSize, computeStencilMultipliers(coordinates),
                           computeStencilOffset(coordinates), stencil, makeNeigbourBitMask(rank, neighbourIndexToRank),
                           makeNeigbourIsNullBitMask(neighbourIndexToRank)),
-         neighbourSendType(generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, true)),
-         neighbourReceiveType(generateMPITypes<T>(coordinates.storageSize, coordinates.localSize, stencil, false)),
          data(rank == -1
                   ? 0ul
                   : static_cast<size_t>(std::accumulate(coordinates.storageSize.cbegin(),
                                                         coordinates.storageSize.cend(), 1, std::multiplies<>()))) {}
+
+   template <typename D> auto getMPITypes() {
+      auto bytes = sizeof(D);
+      if (neighbourMPITypes.find(bytes) == neighbourMPITypes.end()) {
+         auto sendType = generateMPITypes<D>(coordinates.storageSize, coordinates.localSize, stencil, true);
+         auto receiveType = generateMPITypes<D>(coordinates.storageSize, coordinates.localSize, stencil, false);
+         std::tuple<std::array<MPI_Datatype, 27>, std::array<MPI_Datatype, 27>> types = {sendType, receiveType};
+         neighbourMPITypes[bytes] = types;
+         return types;
+      }
+      return neighbourMPITypes.at(bytes);
+   }
 
    ~FsGrid() { finalize(); }
 
    void finalize() noexcept {
       // If not a non-FS process
       if (rank != -1) {
-         for (size_t i = 0; i < 27; i++) {
-            if (neighbourReceiveType[i] != MPI_DATATYPE_NULL)
-               mpiCheck(MPI_Type_free(&(neighbourReceiveType[i])), "Failed to free MPI type");
-            if (neighbourSendType[i] != MPI_DATATYPE_NULL)
-               mpiCheck(MPI_Type_free(&(neighbourSendType[i])), "Failed to free MPI type");
+         for (auto& it : neighbourMPITypes) {
+            auto [sendTypeArray, recvTypeArray] = it.second;
+            for (auto& type : sendTypeArray) {
+               if (type != MPI_DATATYPE_NULL) {
+                  mpiCheck(MPI_Type_free(&type), "Failed to free MPI type");
+               }
+            }
+            for (auto& type : recvTypeArray) {
+               if (type != MPI_DATATYPE_NULL) {
+                  mpiCheck(MPI_Type_free(&type), "Failed to free MPI type");
+               }
+            }
          }
+         neighbourMPITypes.clear();
       }
 
       if (comm3d != MPI_COMM_NULL)
@@ -398,16 +417,14 @@ public:
    // MPI functions
    // ============================
 
-   // TODO: make a version that takes in a structure containing:
-   // - span of data
-   // - MPI send type
-   // - MPI receive type
    /*! Perform ghost cell communication.
     */
-   template <typename D> void updateGhostCells(D& data) {
+   template <typename D> void updateGhostCells(std::span<D>& data) {
       if (comm3d == MPI_COMM_NULL) {
          return;
       }
+
+      auto [neighbourSendType, neighbourReceiveType] = getMPITypes<D>();
 
       std::array<MPI_Request, 27> receiveRequests;
       std::array<MPI_Request, 27> sendRequests;
@@ -441,7 +458,10 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
-   void updateGhostCells() { updateGhostCells(data); }
+   void updateGhostCells() {
+      std::span<T> span = data;
+      updateGhostCells(span);
+   }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
@@ -511,10 +531,8 @@ private:
    //!< Type containing data computed from FsGrid values that are constant for all stencils
    const StencilConstants stencilConstants = {};
 
-   //!< Datatype for sending data
-   std::array<MPI_Datatype, 27> neighbourSendType = {};
-   //!< Datatype for receiving data
-   std::array<MPI_Datatype, 27> neighbourReceiveType = {};
+   //!< Datatypes for sending and receiving data
+   std::unordered_map<size_t, std::tuple<std::array<MPI_Datatype, 27>, std::array<MPI_Datatype, 27>>> neighbourMPITypes;
 
    //! Actual storage of field data
    std::vector<T> data = {};
