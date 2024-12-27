@@ -20,6 +20,7 @@ target_link_libraries(
   ${testname}
   GTest::gtest_main
   MPI::MPI_CXX
+  OpenMP::OpenMP_CXX
 )
 
 gtest_discover_tests(${testname})

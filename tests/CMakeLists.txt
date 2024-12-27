@@ -5,6 +5,8 @@ include(GoogleTest)
 set(data_dirname testdata)
 set(data_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/${data_dirname})
 
+find_package(OpenMP)
+
 add_subdirectory(unit_tests)
 add_subdirectory(mpi_tests)
 

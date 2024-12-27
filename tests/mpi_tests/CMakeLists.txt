@@ -17,6 +17,7 @@ target_link_libraries(
   ${testname}
   GTest::gtest_main
   MPI::MPI_CXX
+  OpenMP::OpenMP_CXX
 )
 
 # Run the tests with mpiexec
