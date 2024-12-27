@@ -458,10 +458,7 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
-   void updateGhostCells() {
-      std::span<T> span = data;
-      updateGhostCells(span);
-   }
+   void updateGhostCells() { updateGhostCells(std::span{&data}); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
