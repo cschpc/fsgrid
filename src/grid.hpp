@@ -419,7 +419,7 @@ public:
 
    /*! Perform ghost cell communication.
     */
-   template <typename D> void updateGhostCells(std::span<D>& data) {
+   template <typename D> void updateGhostCells(std::span<D> data) {
       if (comm3d == MPI_COMM_NULL) {
          return;
       }
@@ -458,7 +458,7 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
-   void updateGhostCells() { updateGhostCells(std::span{&data}); }
+   void updateGhostCells() { updateGhostCells(std::span(data)); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
