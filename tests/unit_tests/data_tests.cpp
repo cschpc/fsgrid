@@ -68,3 +68,35 @@ TEST(FsDataTest, constructed_correctly_from_elements) {
       ASSERT_EQ(e, 1.337f);
    }
 }
+
+TEST(FsDataTest, data_is_correct) {
+   constexpr size_t N = 10;
+   FsData<size_t, CMemoryOperations> data(N);
+
+   for (auto& e : data.view()) {
+      ASSERT_EQ(e, 0ul);
+   }
+
+   size_t i = 0;
+   for (auto& e : data.view()) {
+      e = i++;
+   }
+
+   for (size_t j = 0; j < data.size(); j++) {
+      ASSERT_EQ(*(data.data() + j), j);
+   }
+}
+
+TEST(FsDataTest, indexing_works) {
+   constexpr size_t N = 10;
+   FsData<size_t, CMemoryOperations> data(N);
+
+   size_t i = 0;
+   for (auto& e : data.view()) {
+      e = i++;
+   }
+
+   for (size_t j = 0; j < data.size(); j++) {
+      ASSERT_EQ(data.view()[j], data[j]);
+   }
+}

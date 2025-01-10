@@ -55,11 +55,16 @@ public:
 
    [[nodiscard]] static size_t getMemReq(size_t n) { return n * sizeof(T); }
 
+   [[nodiscard]] T& operator[](size_t i) { return data()[i]; }
+   [[nodiscard]] const T& operator[](size_t i) const { return data()[i]; }
+
    [[nodiscard]] size_t size() const { return num_elements; }
 
-   [[nodiscard]] std::span<T> view() const {
-      return std::span(static_cast<T*>(static_cast<void*>(memory.get())), num_elements);
-   }
+   [[nodiscard]] T* data() { return static_cast<T*>(static_cast<void*>(memory.get())); }
+   [[nodiscard]] T const* data() const { return static_cast<T*>(static_cast<void*>(memory.get())); }
+
+   [[nodiscard]] std::span<T> view() { return std::span(data(), size()); }
+   [[nodiscard]] std::span<const T> view() const { return std::span(data(), size()); }
 
    void swap(FsData<T, MemOps>& other) noexcept {
       std::swap(num_elements, other.num_elements);
