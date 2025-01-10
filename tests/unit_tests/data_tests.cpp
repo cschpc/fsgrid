@@ -6,13 +6,13 @@ using namespace fsgrid;
 
 TEST(FsDataTest, size_set_correctly) {
    constexpr size_t N = 10;
-   FsData<float, CMemoryOperations> data(N);
+   Data<float, CMemoryOperations> data(N);
    ASSERT_EQ(data.size(), N);
 }
 
 TEST(FsDataTest, view_works) {
    constexpr size_t N = 10;
-   FsData<float, CMemoryOperations> data(N);
+   Data<float, CMemoryOperations> data(N);
 
    for (auto& e : data.view()) {
       ASSERT_EQ(e, 0.0f);
@@ -29,8 +29,8 @@ TEST(FsDataTest, view_works) {
 
 TEST(FsDataTest, swap_works) {
    constexpr size_t N = 10;
-   FsData<float, CMemoryOperations> data(N);
-   FsData<float, CMemoryOperations> data2(2 * N);
+   Data<float, CMemoryOperations> data(N);
+   Data<float, CMemoryOperations> data2(2 * N);
 
    for (auto& e : data.view()) {
       ASSERT_EQ(e, 0.0f);
@@ -62,7 +62,7 @@ TEST(FsDataTest, swap_works) {
 TEST(FsDataTest, constructed_correctly_from_elements) {
    constexpr size_t N = 10;
    std::vector<float> elements(N, 1.337f);
-   FsData<float, CMemoryOperations> data(std::span<float>{elements});
+   Data<float, CMemoryOperations> data(std::span<float>{elements});
    ASSERT_EQ(data.size(), N);
    for (auto& e : data.view()) {
       ASSERT_EQ(e, 1.337f);
@@ -71,7 +71,7 @@ TEST(FsDataTest, constructed_correctly_from_elements) {
 
 TEST(FsDataTest, data_is_correct) {
    constexpr size_t N = 10;
-   FsData<size_t, CMemoryOperations> data(N);
+   Data<size_t, CMemoryOperations> data(N);
 
    for (auto& e : data.view()) {
       ASSERT_EQ(e, 0ul);
@@ -89,7 +89,7 @@ TEST(FsDataTest, data_is_correct) {
 
 TEST(FsDataTest, indexing_works) {
    constexpr size_t N = 10;
-   FsData<size_t, CMemoryOperations> data(N);
+   Data<size_t, CMemoryOperations> data(N);
 
    size_t i = 0;
    for (auto& e : data.view()) {

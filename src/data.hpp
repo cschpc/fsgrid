@@ -29,27 +29,19 @@
 #include <span>
 
 namespace fsgrid {
-// Use this as for help, if you need to implement these operations for e.g. Cuda or Hip
-struct CMemoryOperations {
-   static void* allocate(size_t bytes) { return std::malloc(bytes); }
-   static void deallocate(void* ptr) { std::free(ptr); }
-   static void memcpy(void* dst, const void* src, size_t bytes, bool = false) { std::memcpy(dst, src, bytes); }
-   static void memset(void* dst, int pattern, size_t bytes, bool = false) { std::memset(dst, pattern, bytes); }
-};
-
-template <typename T, typename MemOps> struct FsData {
+template <typename T, typename MemOps> struct Data {
 private:
    size_t num_elements = 0ul;
    std::unique_ptr<uint8_t, decltype(&MemOps::deallocate)> memory;
 
 public:
-   FsData(size_t num_elements)
+   Data(size_t num_elements)
        : num_elements(num_elements),
          memory(static_cast<uint8_t*>(MemOps::allocate(getMemReq(num_elements))), &MemOps::deallocate) {
       MemOps::memset(memory.get(), 0, getMemReq(num_elements));
    }
 
-   FsData(const std::span<T> elements) : FsData(elements.size()) {
+   Data(const std::span<T> elements) : Data(elements.size()) {
       MemOps::memcpy(memory.get(), elements.data(), getMemReq(elements.size()));
    }
 
@@ -66,11 +58,24 @@ public:
    [[nodiscard]] std::span<T> view() { return std::span(data(), size()); }
    [[nodiscard]] std::span<const T> view() const { return std::span(data(), size()); }
 
-   void swap(FsData<T, MemOps>& other) noexcept {
+   void swap(Data<T, MemOps>& other) noexcept {
       std::swap(num_elements, other.num_elements);
       memory.swap(other.memory);
    }
 };
 
-template <typename T, typename MemOps> void swap(FsData<T, MemOps>& a, FsData<T, MemOps>& b) noexcept { a.swap(b); }
+template <typename T, typename MemOps> void swap(Data<T, MemOps>& a, Data<T, MemOps>& b) noexcept { a.swap(b); }
+
+// Use this for help, if you need to implement these operations for e.g. Cuda or Hip
+struct CMemoryOperations {
+   static void* allocate(size_t bytes) { return std::malloc(bytes); }
+   static void deallocate(void* ptr) { std::free(ptr); }
+   static void memcpy(void* dst, const void* src, size_t bytes, bool = false) { std::memcpy(dst, src, bytes); }
+   static void memset(void* dst, int pattern, size_t bytes, bool = false) { std::memset(dst, pattern, bytes); }
+};
+
+// With ifdefs change this to have the desired memory operations template parameter
+// This avoids having to specify it everywhere in vlasiator.
+template <typename T> using FsData = Data<T, CMemoryOperations>;
+
 } // namespace fsgrid

@@ -21,6 +21,7 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "coordinates.hpp"
+#include "data.hpp"
 #include "stencil.hpp"
 #include "tools.hpp"
 
@@ -412,6 +413,7 @@ public:
    const auto& getPeriodic() const { return coordinates.periodic; }
    const auto& getDecomposition() const { return coordinates.numTasksPerDim; }
    const auto& getGridSpacing() const { return coordinates.physicalGridSpacing; }
+   size_t size() const { return data.size(); }
 
    // ============================
    // MPI functions
@@ -419,7 +421,7 @@ public:
 
    /*! Perform ghost cell communication.
     */
-   template <typename D> void updateGhostCells(std::span<D> data) {
+   template <typename D> void updateGhostCells(FsData<D> data) {
       if (comm3d == MPI_COMM_NULL) {
          return;
       }
@@ -458,7 +460,7 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
-   void updateGhostCells() { updateGhostCells(std::span(data)); }
+   void updateGhostCells() { updateGhostCells(FsData(std::span{data})); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
