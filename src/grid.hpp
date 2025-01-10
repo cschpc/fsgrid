@@ -21,7 +21,7 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "coordinates.hpp"
-#include "fsstencil.hpp"
+#include "stencil.hpp"
 #include "tools.hpp"
 
 #include <algorithm>

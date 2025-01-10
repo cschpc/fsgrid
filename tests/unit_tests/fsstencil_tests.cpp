@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "fsstencil.hpp"
+#include "stencil.hpp"
 
 TEST(BitMaskTest, unsetMask) {
    constexpr fsgrid::BitMask32 mask(0);
