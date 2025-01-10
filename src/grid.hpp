@@ -421,7 +421,7 @@ public:
 
    /*! Perform ghost cell communication.
     */
-   template <typename D> void updateGhostCells(FsData<D> data) {
+   template <typename D> void updateGhostCells(std::span<D> data) {
       if (comm3d == MPI_COMM_NULL) {
          return;
       }
@@ -460,7 +460,9 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
-   void updateGhostCells() { updateGhostCells(FsData(std::span{data})); }
+   template <typename D> void updateGhostCells(FsData<D>& data) { updateGhostCells(data.view()); }
+
+   void updateGhostCells() { updateGhostCells(std::span{data}); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
@@ -480,8 +482,7 @@ public:
       }
    }
 
-   template <typename Lambda>
-   void parallel_for(Lambda loop_body) {
+   template <typename Lambda, typename... Args> void parallel_for(Lambda loop_body, Args&... args) {
       // Using raw pointer for gridDims;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
@@ -497,12 +498,13 @@ public:
                   auto tech = getData()[s.center()];
                   auto sysBoundaryFlag = tech.sysBoundaryFlag;
                   auto sysBoundaryLayer = tech.sysBoundaryLayer;
-                  loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
+                  loop_body(s, sysBoundaryFlag, sysBoundaryLayer, args...);
                }
             }
          }
       }
    }
+
 private:
    //! How many fieldsolver processes there are
    const int32_t numProcs = 0;
