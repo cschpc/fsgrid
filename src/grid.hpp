@@ -482,7 +482,8 @@ public:
       }
    }
 
-   template <typename Lambda, typename Timer> void parallel_for(Lambda loop_body, Timer timerCallBack, int timerId) {
+   template <typename Lambda, typename TimerCallBack>
+   void parallel_for(Lambda loop_body, TimerCallBack timerCallBack, int timerId) {
       // Using raw pointer for localSize;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
@@ -490,7 +491,7 @@ public:
 
 #pragma omp parallel
       {
-         Timer timer = timerCallBack(timerId);
+         auto timer = timerCallBack(timerId);
 #pragma omp for collapse(2)
          for (auto k = 0; k < localSize[2]; k++) {
             for (auto j = 0; j < localSize[1]; j++) {
