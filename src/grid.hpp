@@ -405,6 +405,7 @@ public:
    // ============================
    // Getters
    // ============================
+   auto getNumCells() const { return coordinates.localSize[0] * coordinates.localSize[1] * coordinates.localSize[2]; }
    const auto& getLocalSize() const { return coordinates.localSize; }
    const auto& getLocalStart() const { return coordinates.localStart; }
    const auto& getGlobalSize() const { return coordinates.globalSize; }
@@ -481,29 +482,31 @@ public:
       }
    }
 
-   template <typename Lambda>
-   void parallel_for(Lambda loop_body) {
-      // Using raw pointer for gridDims;
+   template <typename Lambda, typename Timer> void parallel_for(Lambda loop_body, Timer timerCallBack, int timerId) {
+      // Using raw pointer for localSize;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
-      const FsIndex_t* gridDims = &coordinates.localSize[0];
+      const FsIndex_t* localSize = &coordinates.localSize[0];
 
-      #pragma omp parallel
+#pragma omp parallel
       {
-         #pragma omp for collapse(2)
-         for (FsIndex_t k=0; k<gridDims[2]; k++) {
-            for (FsIndex_t j=0; j<gridDims[1]; j++) {
-               for (FsIndex_t i=0; i<gridDims[0]; i++) {
+         Timer timer = timerCallBack(timerId);
+#pragma omp for collapse(2)
+         for (auto k = 0; k < localSize[2]; k++) {
+            for (auto j = 0; j < localSize[1]; j++) {
+               for (auto i = 0; i < localSize[0]; i++) {
                   const auto s = makeStencil(i, j, k);
-                  auto tech = getData()[s.center()];
-                  auto sysBoundaryFlag = tech.sysBoundaryFlag;
-                  auto sysBoundaryLayer = tech.sysBoundaryLayer;
+                  const auto tech = data[s.center()];
+                  const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+                  const auto sysBoundaryLayer = tech.sysBoundaryLayer;
                   loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
                }
             }
          }
+         timer.stop(getNumCells(), "Spatial Cells");
       }
    }
+
 private:
    //! How many fieldsolver processes there are
    const int32_t numProcs = 0;
