@@ -460,6 +460,7 @@ public:
                "Synchronization at ghost cell update failed");
    }
 
+   template <typename D> void updateGhostCells(FsData<D>& data) { updateGhostCells(data.view()); }
    void updateGhostCells() { updateGhostCells(std::span{data}); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
