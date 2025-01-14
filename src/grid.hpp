@@ -472,7 +472,7 @@ public:
    }
 
    template <typename Lambda, typename TimerCallBack, typename T>
-   void parallel_for(TimerCallBack timerCallBack, int timerId, const FsData<T>& technical, Lambda loop_body) {
+   void parallel_for(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
       // Using raw pointer for localSize;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
