@@ -30,11 +30,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <functional>
-#include <limits>
 #include <mpi.h>
-#include <numeric>
 #include <span>
+#include <unordered_map>
 #include <vector>
 
 namespace fsgrid_detail {
@@ -297,7 +295,7 @@ static int32_t computeStencilOffset(const Coordinates& coordinates) {
 namespace fsgrid {
 using namespace fsgrid_detail;
 
-template <typename T, int32_t stencil> class FsGrid {
+template <int32_t stencil> class FsGrid {
 public:
    /*! Constructor for this grid.
     * \param globalSize Cell size of the global simulation domain.
@@ -318,11 +316,7 @@ public:
          neighbourRankToIndex(mapNeighbourRankToIndex(neighbourIndexToRank, numProcs)),
          stencilConstants(coordinates.localSize, computeStencilMultipliers(coordinates),
                           computeStencilOffset(coordinates), stencil, makeNeigbourBitMask(rank, neighbourIndexToRank),
-                          makeNeigbourIsNullBitMask(neighbourIndexToRank)),
-         data(rank == -1
-                  ? 0ul
-                  : static_cast<size_t>(std::accumulate(coordinates.storageSize.cbegin(),
-                                                        coordinates.storageSize.cend(), 1, std::multiplies<>()))) {}
+                          makeNeigbourIsNullBitMask(neighbourIndexToRank)) {}
 
    template <typename D> auto getMPITypes() {
       auto bytes = sizeof(D);
@@ -360,12 +354,6 @@ public:
       if (comm3d != MPI_COMM_NULL)
          mpiCheck(MPI_Comm_free(&comm3d), "Failed to free MPI comm3d");
    }
-
-   // ============================
-   // Data access functions
-   // ============================
-   std::vector<T>& getData() { return data; }
-   const std::vector<T>& getData() const { return data; }
 
    // ============================
    // Coordinate change functions
@@ -406,6 +394,9 @@ public:
    // Getters
    // ============================
    auto getNumCells() const { return coordinates.localSize[0] * coordinates.localSize[1] * coordinates.localSize[2]; }
+   auto getStorageSize() const {
+      return coordinates.storageSize[0] * coordinates.storageSize[1] * coordinates.storageSize[2];
+   }
    const auto& getLocalSize() const { return coordinates.localSize; }
    const auto& getLocalStart() const { return coordinates.localStart; }
    const auto& getGlobalSize() const { return coordinates.globalSize; }
@@ -414,7 +405,6 @@ public:
    const auto& getPeriodic() const { return coordinates.periodic; }
    const auto& getDecomposition() const { return coordinates.numTasksPerDim; }
    const auto& getGridSpacing() const { return coordinates.physicalGridSpacing; }
-   size_t size() const { return data.size(); }
 
    // ============================
    // MPI functions
@@ -462,7 +452,6 @@ public:
    }
 
    template <typename D> void updateGhostCells(FsData<D>& data) { updateGhostCells(data.view()); }
-   void updateGhostCells() { updateGhostCells(std::span{data}); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
@@ -482,8 +471,8 @@ public:
       }
    }
 
-   template <typename Lambda, typename TimerCallBack>
-   void parallel_for(TimerCallBack timerCallBack, int timerId, Lambda loop_body) {
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void parallel_for(TimerCallBack timerCallBack, int timerId, const FsData<T>& technical, Lambda loop_body) {
       // Using raw pointer for localSize;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
@@ -497,7 +486,7 @@ public:
             for (auto j = 0; j < localSize[1]; j++) {
                for (auto i = 0; i < localSize[0]; i++) {
                   const auto s = makeStencil(i, j, k);
-                  const auto tech = data[s.center()];
+                  const auto& tech = technical[s.center()];
                   const auto sysBoundaryFlag = tech.sysBoundaryFlag;
                   const auto sysBoundaryLayer = tech.sysBoundaryLayer;
                   loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
@@ -537,8 +526,5 @@ private:
 
    //!< Datatypes for sending and receiving data
    std::unordered_map<size_t, std::tuple<std::array<MPI_Datatype, 27>, std::array<MPI_Datatype, 27>>> neighbourMPITypes;
-
-   //! Actual storage of field data
-   std::vector<T> data = {};
 };
 } // namespace fsgrid
