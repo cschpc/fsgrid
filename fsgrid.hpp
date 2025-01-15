@@ -21,5 +21,6 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "src/data.hpp"
 #include "src/grid.hpp"
 #include "src/tools.hpp"
