@@ -21,7 +21,6 @@
   along with fsgrid.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "coordinates.hpp"
-#include "data.hpp"
 #include "stencil.hpp"
 #include "tools.hpp"
 
@@ -32,6 +31,7 @@
 #include <cstdio>
 #include <mpi.h>
 #include <span>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -394,7 +394,7 @@ public:
    // Getters
    // ============================
    auto getNumCells() const { return coordinates.localSize[0] * coordinates.localSize[1] * coordinates.localSize[2]; }
-   auto getStorageSize() const {
+   auto getNumStorageCells() const {
       return coordinates.storageSize[0] * coordinates.storageSize[1] * coordinates.storageSize[2];
    }
    const auto& getLocalSize() const { return coordinates.localSize; }
@@ -450,8 +450,6 @@ public:
       mpiCheck(MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE),
                "Synchronization at ghost cell update failed");
    }
-
-   template <typename D> void updateGhostCells(FsData<D>& data) { updateGhostCells(data.view()); }
 
    /*! Perform an MPI_Allreduce with this grid's internal communicator
     * Function syntax is identical to MPI_Allreduce, except the final (communicator
