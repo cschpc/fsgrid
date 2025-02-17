@@ -14,7 +14,7 @@ TEST(FsDataTest, view_works) {
    constexpr size_t N = 10;
    Data<float, CMemoryOperations> data(N);
 
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 0.0f);
    }
 
@@ -22,7 +22,7 @@ TEST(FsDataTest, view_works) {
       e = 666.0f;
    }
 
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 666.0f);
    }
 }
@@ -32,11 +32,11 @@ TEST(FsDataTest, swap_works) {
    Data<float, CMemoryOperations> data(N);
    Data<float, CMemoryOperations> data2(2 * N);
 
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 0.0f);
    }
 
-   for (auto& e : data2.view()) {
+   for (const auto& e : data2.view()) {
       ASSERT_EQ(e, 0.0f);
    }
 
@@ -47,11 +47,11 @@ TEST(FsDataTest, swap_works) {
    using std::swap;
    swap(data, data2);
 
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 0.0f);
    }
 
-   for (auto& e : data2.view()) {
+   for (const auto& e : data2.view()) {
       ASSERT_EQ(e, 666.0f);
    }
 
@@ -64,7 +64,7 @@ TEST(FsDataTest, constructed_correctly_from_elements) {
    std::vector<float> elements(N, 1.337f);
    Data<float, CMemoryOperations> data(std::span<float>{elements});
    ASSERT_EQ(data.size(), N);
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 1.337f);
    }
 }
@@ -73,7 +73,7 @@ TEST(FsDataTest, data_is_correct) {
    constexpr size_t N = 10;
    Data<size_t, CMemoryOperations> data(N);
 
-   for (auto& e : data.view()) {
+   for (const auto& e : data.view()) {
       ASSERT_EQ(e, 0ul);
    }
 

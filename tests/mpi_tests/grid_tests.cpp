@@ -10,8 +10,7 @@ TEST(FsGridTest, localToGlobalRoundtrip1) {
    auto numProcs = 0;
    MPI_Comm_size(parentComm, &numProcs);
 
-   const auto grid = fsgrid::FsGrid<std::array<double, 15>, 1>(globalSize, parentComm, numProcs, periodic,
-                                                               {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto grid = fsgrid::FsGrid<1>(globalSize, parentComm, numProcs, periodic, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
    const auto localSize = grid.getLocalSize();
    for (int32_t x = 0; x < localSize[0]; x++) {
       for (int32_t y = 0; y < localSize[1]; y++) {
@@ -36,8 +35,7 @@ TEST(FsGridTest, myGlobalIDCorrespondsToMyTask) {
    auto numProcs = 0;
    MPI_Comm_size(parentComm, &numProcs);
 
-   const auto grid = fsgrid::FsGrid<std::array<double, 6>, 1>(globalSize, parentComm, numProcs, periodic,
-                                                              {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   const auto grid = fsgrid::FsGrid<1>(globalSize, parentComm, numProcs, periodic, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
    const auto localSize = grid.getLocalSize();
    for (int32_t x = 0; x < localSize[0]; x++) {
       for (int32_t y = 0; y < localSize[1]; y++) {
@@ -60,8 +58,8 @@ TEST(FsGridTest, getTaskForGlobalID1) {
    auto numProcs = 0;
    MPI_Comm_size(parentComm, &numProcs);
 
-   auto grid = fsgrid::FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
-                                                                    {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   auto grid =
+       fsgrid::FsGrid<numGhostCells>(globalSize, parentComm, numProcs, periodic, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
    constexpr auto id = 666;
    const auto task = grid.getTaskForGlobalID(id);
    printf("Task for id %d: %d\n", id, task);
@@ -75,8 +73,8 @@ TEST(FsGridTest, getTaskForGlobalID2) {
    constexpr int32_t numGhostCells = 2;
    auto numProcs = 4;
 
-   auto grid = fsgrid::FsGrid<std::array<double, 8>, numGhostCells>(globalSize, parentComm, numProcs, periodic,
-                                                                    {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
+   auto grid =
+       fsgrid::FsGrid<numGhostCells>(globalSize, parentComm, numProcs, periodic, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
    constexpr auto id = 666;
    const auto task = grid.getTaskForGlobalID(id);
    printf("Task for id %d: %d\n", id, task);
