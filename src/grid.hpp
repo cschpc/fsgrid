@@ -484,7 +484,7 @@ public:
             for (auto j = 0; j < localSize[1]; j++) {
                for (auto i = 0; i < localSize[0]; i++) {
                   const auto s = makeStencil(i, j, k);
-                  const auto& tech = technical[s.center()];
+                  const auto& tech = technical[s.ooo()];
                   const auto sysBoundaryFlag = tech.sysBoundaryFlag;
                   const auto sysBoundaryLayer = tech.sysBoundaryLayer;
                   loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
