@@ -69,57 +69,56 @@ public:
 
    // clang-format off
    // These names come from the right hand rule, with
-   // - x horizontal (left right)
-   // - y vertical   (down up)
-   // - z on the line of sight (far near)
-   //
-   //            up
-   //             |
-   //             |  far
-   //             | /
-   //             |/
-   //  left ------o------ right
-   //            /|
-   //           / | 
-   //       near  |
-   //             |
-   //            down
+   // - x horizontal
+   // - y on the line of sight                         +z    +y
+   // - z vertical                                      |    /
+   //                                                  oop  /
+   // and                                          mpo__|_opo____ppo
+   // - m standing for "minus"                     /    | /      /
+   // - p for "plus" and                          /     |/      /
+   // - o for "zero" or "origin"        -x --moo ------ooo------ poo-- +x
+   //                                           /      /|     /
+   // Examples:                                /_____ /_|____/
+   // -1,  0,  0 = moo                       mmo    omo |    pmo
+   // +1,  0,  0 = poo                              /  oom    
+   // +1, +1, +1 = ppp                             /    |
+   //  0,  0,  0 = ooo                            -y   -z
 
-   constexpr size_t center() const          { return calculateIndex({i,     j    , k    }); }
-   constexpr size_t near() const            { return calculateIndex({i,     j    , k + 1}); }
-   constexpr size_t far()  const            { return calculateIndex({i,     j    , k - 1}); }
+   constexpr size_t ooo() const { return calculateIndex({i,     j    , k    }); }
+   constexpr size_t oop() const { return calculateIndex({i,     j    , k + 1}); }
+   constexpr size_t oom() const { return calculateIndex({i,     j    , k - 1}); }
 
-   constexpr size_t up()  const             { return calculateIndex({i,     j + 1, k    }); }
-   constexpr size_t upnear() const          { return calculateIndex({i,     j + 1, k + 1}); }
-   constexpr size_t upfar() const           { return calculateIndex({i,     j + 1, k - 1}); }
+   constexpr size_t opo() const { return calculateIndex({i,     j + 1, k    }); }
+   constexpr size_t opp() const { return calculateIndex({i,     j + 1, k + 1}); }
+   constexpr size_t opm() const { return calculateIndex({i,     j + 1, k - 1}); }
 
-   constexpr size_t down() const            { return calculateIndex({i,     j - 1, k    }); }
-   constexpr size_t downnear() const        { return calculateIndex({i,     j - 1, k + 1}); }
-   constexpr size_t downfar() const         { return calculateIndex({i,     j - 1, k - 1}); }
+   constexpr size_t omo() const { return calculateIndex({i,     j - 1, k    }); }
+   constexpr size_t omp() const { return calculateIndex({i,     j - 1, k + 1}); }
+   constexpr size_t omm() const { return calculateIndex({i,     j - 1, k - 1}); }
 
-   constexpr size_t right() const           { return calculateIndex({i + 1, j    , k    }); }
-   constexpr size_t rightnear() const       { return calculateIndex({i + 1, j    , k + 1}); }
-   constexpr size_t rightfar() const        { return calculateIndex({i + 1, j    , k - 1}); }
+   constexpr size_t poo() const { return calculateIndex({i + 1, j    , k    }); }
+   constexpr size_t pop() const { return calculateIndex({i + 1, j    , k + 1}); }
+   constexpr size_t pom() const { return calculateIndex({i + 1, j    , k - 1}); }
 
-   constexpr size_t rightup() const         { return calculateIndex({i + 1, j + 1, k    }); }
-   constexpr size_t rightupnear() const     { return calculateIndex({i + 1, j + 1, k + 1}); }
-   constexpr size_t rightupfar() const      { return calculateIndex({i + 1, j + 1, k - 1}); }
+   constexpr size_t ppo() const { return calculateIndex({i + 1, j + 1, k    }); }
+   constexpr size_t ppp() const { return calculateIndex({i + 1, j + 1, k + 1}); }
+   constexpr size_t ppm() const { return calculateIndex({i + 1, j + 1, k - 1}); }
 
-   constexpr size_t rightdown() const       { return calculateIndex({i + 1, j - 1, k    }); }
-   constexpr size_t rightdownnear() const   { return calculateIndex({i + 1, j - 1, k + 1}); }
-   constexpr size_t rightdownfar() const    { return calculateIndex({i + 1, j - 1, k - 1}); }
+   constexpr size_t pmo() const { return calculateIndex({i + 1, j - 1, k    }); }
+   constexpr size_t pmp() const { return calculateIndex({i + 1, j - 1, k + 1}); }
+   constexpr size_t pmm() const { return calculateIndex({i + 1, j - 1, k - 1}); }
 
-   constexpr size_t left() const            { return calculateIndex({i - 1, j    , k    }); }
-   constexpr size_t leftnear() const        { return calculateIndex({i - 1, j    , k + 1}); }
-   constexpr size_t leftfar() const         { return calculateIndex({i - 1, j    , k - 1}); }
+   constexpr size_t moo() const { return calculateIndex({i - 1, j    , k    }); }
+   constexpr size_t mop() const { return calculateIndex({i - 1, j    , k + 1}); }
+   constexpr size_t mom() const { return calculateIndex({i - 1, j    , k - 1}); }
 
-   constexpr size_t leftup() const          { return calculateIndex({i - 1, j + 1, k    }); }
-   constexpr size_t leftupnear() const      { return calculateIndex({i - 1, j + 1, k + 1}); }
-   constexpr size_t leftupfar() const       { return calculateIndex({i - 1, j + 1, k - 1}); }
+   constexpr size_t mpo() const { return calculateIndex({i - 1, j + 1, k    }); }
+   constexpr size_t mpp() const { return calculateIndex({i - 1, j + 1, k + 1}); }
+   constexpr size_t mpm() const { return calculateIndex({i - 1, j + 1, k - 1}); }
 
-   constexpr size_t leftdown() const        { return calculateIndex({i - 1, j - 1, k    }); }
-   constexpr size_t leftdownnear() const    { return calculateIndex({i - 1, j - 1, k + 1}); }
-   constexpr size_t leftdownfar() const     { return calculateIndex({i - 1, j - 1, k - 1}); }
+   constexpr size_t mmo() const { return calculateIndex({i - 1, j - 1, k    }); }
+   constexpr size_t mmp() const { return calculateIndex({i - 1, j - 1, k + 1}); }
+   constexpr size_t mmm() const { return calculateIndex({i - 1, j - 1, k - 1}); }
    // clang-format on
 
    constexpr bool cellExists(int32_t io, int32_t jo, int32_t ko) const {
