@@ -148,6 +148,32 @@ struct Coordinates {
       return localIDFromLocalCoordinates(indices[0], indices[1], indices[2]);
    }
 
+   /*! Determine the cell's local coordinates in cells from its localID
+    * \param localID local ID
+    */
+   constexpr std::array<FsIndex_t, 3> localCoordsFromLocalID(LocalID localID) const {
+      const LocalID idPerGs0 = localID / localSize[0];
+      const LocalID idPerGs0PerGs1 = idPerGs0 / localSize[1];
+      return {
+         (FsIndex_t)(localID % localSize[0]),
+         (FsIndex_t)(idPerGs0 % localSize[1]),
+         (FsIndex_t)(idPerGs0PerGs1 % localSize[2]),
+      };
+   }
+
+   /*! Determine the cell's local coordinates in cells from its globalID
+    * \param globalID global ID
+    */
+   constexpr std::array<FsIndex_t, 3> localCoordsFromGlobalID(GlobalID globalID) const {
+      const GlobalID idPerGs0 = globalID / globalSize[0];
+      const GlobalID idPerGs0PerGs1 = idPerGs0 / globalSize[1];
+      return {
+         (FsIndex_t)(globalID % globalSize[0]) - localStart[0],
+         (FsIndex_t)(idPerGs0 % globalSize[1]) - localStart[1],
+         (FsIndex_t)(idPerGs0PerGs1 % globalSize[2] - localStart[2]),
+      };
+   }
+
    /*! Transform global cell coordinates into the local domain.
     * If the coordinates are out of bounds, (-1,-1,-1) is returned.
     * \param x The cell's global x coordinate
@@ -209,6 +235,33 @@ struct Coordinates {
           physicalGlobalStart[1] + (localStart[1] + y) * physicalGridSpacing[1],
           physicalGlobalStart[2] + (localStart[2] + z) * physicalGridSpacing[2],
       };
+   }
+
+   /*! Get the physical coordinates in the global simulation space for
+    * the given cell.
+    *
+    * \param ijk local coordinates, in cells
+    */
+   constexpr std::array<double, 3> getPhysicalCoords(std::array<FsIndex_t, 3> ijk) const {
+      return getPhysicalCoords(ijk[0], ijk[1], ijk[2]);
+   }
+
+   /*! Get the physical coordinates in the global simulation space for
+    * the given cell.
+    *
+    * \param localID local ID
+    */
+   constexpr std::array<double, 3> getPhysicalCoordsFromLocalID(LocalID localID) const {
+      return getPhysicalCoords(localCoordsFromLocalID(localID));
+   }
+
+   /*! Get the physical coordinates in the global simulation space for
+    * the given cell.
+    *
+    * \param globalID global ID
+    */
+   constexpr std::array<double, 3> getPhysicalCoordsFromGlobalID(GlobalID globalID) const {
+      return getPhysicalCoords(localCoordsFromGlobalID(globalID));
    }
 
    /*! Get the global cell coordinates for the given physical coordinates.
