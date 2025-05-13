@@ -367,6 +367,7 @@ public:
    }
    template <typename... Args> auto globalToLocal(Args... args) const { return coordinates.globalToLocal(args...); }
    template <typename... Args> auto localToGlobal(Args... args) const { return coordinates.localToGlobal(args...); }
+   template <typename... Args> auto localCoordsFromStencilID(Args... args) const { return coordinates.localCoordsFromStencilID(args...); }
    template <typename... Args> auto getPhysicalCoords(Args... args) const {
       return coordinates.getPhysicalCoords(args...);
    }

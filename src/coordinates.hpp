@@ -161,6 +161,19 @@ struct Coordinates {
       };
    }
 
+   /*! Determine the cell's local coordinates in cells from its stencilID
+    * \param localID stencil ID
+    */
+   constexpr std::array<FsIndex_t, 3> localCoordsFromStencilID(size_t stencilID) const {
+      const LocalID idPerGs0 = stencilID / storageSize[0];
+      const LocalID idPerGs0PerGs1 = idPerGs0 / storageSize[1];
+      return {
+         (FsIndex_t)(stencilID % storageSize[0] - (globalSize[0] > 1 ? numGhostCells : 0)),
+         (FsIndex_t)(idPerGs0 % storageSize[1] - (globalSize[1] > 1 ? numGhostCells : 0)),
+         (FsIndex_t)(idPerGs0PerGs1 % storageSize[2] - (globalSize[2] > 1 ? numGhostCells : 0)),
+      };
+   }
+
    /*! Determine the cell's local coordinates in cells from its globalID
     * \param globalID global ID
     */
