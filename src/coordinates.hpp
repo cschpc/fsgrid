@@ -128,6 +128,13 @@ struct Coordinates {
       return xcontrib + ycontrib + zcontrib;
    }
 
+   /*! Determine the cell's GlobalID from its local x,y,z coordinates
+    * \param xyz The cell's task-local x,y,z coordinates in one array
+    */
+   constexpr GlobalID globalIDFromLocalCoordinates(std::array<FsIndex_t, 3> xyz) const {
+      return globalIDFromLocalCoordinates(xyz[0], xyz[1], xyz[2]);
+   }
+
    /*! Determine the cell's LocalID from its local x,y,z coordinates
     * \param x The cell's task-local x coordinate
     * \param y The cell's task-local y coordinate
