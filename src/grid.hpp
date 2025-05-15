@@ -371,12 +371,6 @@ public:
    template <typename... Args> auto getPhysicalCoords(Args... args) const {
       return coordinates.getPhysicalCoords(args...);
    }
-   template <typename... Args> auto getPhysicalCoordsFromLocalID(Args... args) const {
-      return coordinates.getPhysicalCoordsFromLocalID(args...);
-   }
-   template <typename... Args> auto getPhysicalCoordsFromGlobalID(Args... args) const {
-      return coordinates.getPhysicalCoordsFromGlobalID(args...);
-   }
    template <typename... Args> auto physicalToGlobal(Args... args) const {
       return coordinates.physicalToGlobal(args...);
    }
