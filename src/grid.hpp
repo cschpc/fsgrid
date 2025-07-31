@@ -497,6 +497,29 @@ public:
       }
    }
 
+/*! Same as above parallel_for but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
+   }
+
    /*! Parallelised for loop interface passing ijk to the loop body*/
    template <typename Lambda, typename TimerCallBack, typename T>
    void parallel_for_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
@@ -524,6 +547,30 @@ public:
       }
    }
 
+   /*! Same as above parallel_for_ijk but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, i, j, k);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
+   }
+
+
    /*! Parallelised for loop interface passing global ijk to the loop body*/
    template <typename Lambda, typename TimerCallBack, typename T>
    void parallel_for_global_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
@@ -550,6 +597,30 @@ public:
          }
          timer.stop(getNumCells(), "Spatial Cells");
       }
+   }
+
+   /*! Same as above parallel_for_global_ijk but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for_global_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               const auto gijk = localToGlobal(i,j,k);
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, gijk[0], gijk[1], gijk[2]);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
    }
 
    /*! Parallelised for loop interface passing physical coordinates to the loop body*/
@@ -580,6 +651,30 @@ public:
       }
    }
 
+   /*! Same as above parallel_for_coords but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for_coords(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               const auto coords = getPhysicalCoords(i,j,k);
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, coords);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
+   }
+
    /*! Parallelised for loop interface passing physical coordinates and global cellid to the loop body*/
    template <typename Lambda, typename TimerCallBack, typename T>
    void parallel_for_cellid(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
@@ -606,6 +701,30 @@ public:
          }
          timer.stop(getNumCells(), "Spatial Cells");
       }
+   }
+
+   /*! Same as above parallel_for_cellid but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for_cellid(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               const auto cellid = globalIDFromLocalCoordinates(i,j,k);
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, cellid);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
    }
 
    /*! Parallelised for loop interface passing physical coordinates and global cellid to the loop body*/
@@ -637,10 +756,9 @@ public:
       }
    }
 
-
-   /*! Same as above parallel_for but without parallelization, for debugging purposes */
+   /*! Same as above parallel_for_coords_cellid but without parallelization */
    template <typename Lambda, typename TimerCallBack, typename T>
-   void serial_for(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+   void serial_for_coords_cellid(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
       // Using raw pointer for localSize;
       // Workaround intel compiler bug in collapsed openmp loops
       // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
@@ -654,7 +772,61 @@ public:
                const auto& tech = technical[s.ooo()];
                const auto sysBoundaryFlag = tech.sysBoundaryFlag;
                const auto sysBoundaryLayer = tech.sysBoundaryLayer;
-               loop_body(s, sysBoundaryFlag, sysBoundaryLayer);
+               const auto coords = getPhysicalCoords(i,j,k);
+               const auto cellid = globalIDFromLocalCoordinates(i,j,k);
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, coords, cellid);
+            }
+         }
+      }
+      timer.stop(getNumCells(), "Spatial Cells");
+   }
+
+   /*! Parallelised for loop interface passing physical coordinates and local ijk to the loop body*/
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void parallel_for_coords_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+#pragma omp parallel
+      {
+         auto timer = timerCallBack(timerId);
+#pragma omp for collapse(2)
+         for (auto k = 0; k < localSize[2]; k++) {
+            for (auto j = 0; j < localSize[1]; j++) {
+               for (auto i = 0; i < localSize[0]; i++) {
+                  const auto s = makeStencil(i, j, k);
+                  const auto& tech = technical[s.ooo()];
+                  const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+                  const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+                  const auto coords = getPhysicalCoords(i,j,k);
+                  loop_body(s, sysBoundaryFlag, sysBoundaryLayer, coords, i, j, k);
+               }
+            }
+         }
+         timer.stop(getNumCells(), "Spatial Cells");
+      }
+   }
+
+   /*! Same as above parallel_for_coords_ijk but without parallelization */
+   template <typename Lambda, typename TimerCallBack, typename T>
+   void serial_for_coords_ijk(TimerCallBack timerCallBack, int timerId, std::span<T> technical, Lambda loop_body) {
+      // Using raw pointer for localSize;
+      // Workaround intel compiler bug in collapsed openmp loops
+      // see https://github.com/fmihpc/vlasiator/commit/604c81142729c5025a0073cd5dc64a24882f1675
+      const FsIndex_t* localSize = &coordinates.localSize[0];
+
+      auto timer = timerCallBack(timerId);
+      for (auto k = 0; k < localSize[2]; k++) {
+         for (auto j = 0; j < localSize[1]; j++) {
+            for (auto i = 0; i < localSize[0]; i++) {
+               const auto s = makeStencil(i, j, k);
+               const auto& tech = technical[s.ooo()];
+               const auto sysBoundaryFlag = tech.sysBoundaryFlag;
+               const auto sysBoundaryLayer = tech.sysBoundaryLayer;
+               const auto coords = getPhysicalCoords(i,j,k);
+               loop_body(s, sysBoundaryFlag, sysBoundaryLayer, coords, i, j, k);
             }
          }
       }
