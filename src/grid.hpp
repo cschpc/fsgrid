@@ -374,8 +374,8 @@ public:
    template <typename... Args> auto physicalToGlobal(Args... args) const {
       return coordinates.physicalToGlobal(args...);
    }
-   template <typename... Args> auto physicalToFractionalGlobal(Args... args) const {
-      return coordinates.physicalToFractionalGlobal(args...);
+   template <typename... Args> auto physicalToCellFractional(Args... args) const {
+      return coordinates.physicalToCellFractional(args...);
    }
 
    /*! Returns the task responsible for handling the cell with the given GlobalID

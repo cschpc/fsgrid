@@ -260,7 +260,7 @@ struct Coordinates {
     * \param y physical y-Coordinate
     * \param z physical z-Coordinate
     */
-   constexpr std::array<double, 3> physicalToFractionalGlobal(double x, double y, double z) const {
+   constexpr std::array<double, 3> physicalToCellFractional(double x, double y, double z) const {
       const auto global = physicalToGlobal(x, y, z);
       return {
           (x - physicalGlobalStart[0]) / physicalGridSpacing[0] - global[0],
